@@ -12,14 +12,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-    $middleware->api(prepend: [
-        \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-    ]);
-    
-    $middleware->alias([
-        'admin.auth' => \App\Http\Middleware\AdminAuthenticated::class,
-    ]);
-})
+        $middleware->api(prepend: [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+        ]);
+        
+        $middleware->alias([
+            'admin.auth' => \App\Http\Middleware\AdminAuthenticated::class,
+            'admin.role' => \App\Http\Middleware\CheckAdminRole::class,
+        ]);
+    })
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();

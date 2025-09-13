@@ -1,6 +1,6 @@
 <?php
 // ================================================================
-// 📝 FICHIER: app/Http/Controllers/Api/Admin/AuthController.php
+// 📝 FICHIER: app/Http/Controllers/Api/Admin/AuthController.php (CORRIGÉ)
 // ================================================================
 
 namespace App\Http\Controllers\Api\Admin;
@@ -20,13 +20,30 @@ class AuthController extends Controller
     /**
      * Connexion administrateur
      */
-    public function login(LoginRequest $request): JsonResponse
+    public function login(Request $request): JsonResponse
     {
+        // Validation simple des données
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|min:6',
+            'remember' => 'boolean'
+        ]);
+
         try {
             $credentials = $request->only('email', 'password');
             
+            Log::info('Tentative de connexion admin', [
+                'email' => $credentials['email'],
+                'ip' => $request->ip()
+            ]);
+
             // Tentative de connexion
-            if (!Auth::attempt($credentials, $request->boolean('remember'))) {
+            if (!Auth::attempt($credentials, $request->boolean('remember', false))) {
+                Log::warning('Identifiants incorrects', [
+                    'email' => $credentials['email'],
+                    'ip' => $request->ip()
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Identifiants incorrects.',
@@ -39,6 +56,12 @@ class AuthController extends Controller
             // Vérifier que c'est bien un admin
             if ($user->role !== 'admin') {
                 Auth::logout();
+                Log::warning('Tentative d\'accès non-admin', [
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'ip' => $request->ip()
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Accès refusé. Vous n\'êtes pas administrateur.',
@@ -49,6 +72,12 @@ class AuthController extends Controller
             // Vérifier que le compte est actif
             if ($user->statut !== 'actif') {
                 Auth::logout();
+                Log::warning('Compte suspendu', [
+                    'email' => $user->email,
+                    'statut' => $user->statut,
+                    'ip' => $request->ip()
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Votre compte est suspendu. Contactez l\'administrateur.',
@@ -65,7 +94,7 @@ class AuthController extends Controller
                 'nombre_connexions' => $user->nombre_connexions + 1
             ]);
 
-            // Log de la connexion
+            // Log de la connexion réussie
             Log::info('Connexion administrateur réussie', [
                 'user_id' => $user->id,
                 'email' => $user->email,
@@ -81,15 +110,15 @@ class AuthController extends Controller
                     'token' => $token,
                     'token_type' => 'Bearer',
                     'expires_in' => config('sanctum.expiration', null),
-                ],
-                'redirect_url' => route('admin.dashboard')
+                ]
             ]);
 
         } catch (\Exception $e) {
             Log::error('Erreur lors de la connexion admin', [
                 'error' => $e->getMessage(),
                 'email' => $request->email,
-                'ip' => $request->ip()
+                'ip' => $request->ip(),
+                'trace' => $e->getTraceAsString()
             ]);
 
             return response()->json([
@@ -180,6 +209,20 @@ class AuthController extends Controller
     }
 
     /**
+     * Vérifier le statut de l'authentification
+     */
+    public function check(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        return response()->json([
+            'success' => true,
+            'authenticated' => $user !== null && $user->role === 'admin',
+            'data' => $user ? new UserResource($user) : null
+        ]);
+    }
+
+    /**
      * Actualiser le token
      */
     public function refresh(Request $request): JsonResponse
@@ -223,19 +266,5 @@ class AuthController extends Controller
                 'error_code' => 'REFRESH_ERROR'
             ], 500);
         }
-    }
-
-    /**
-     * Vérifier le statut de l'authentification
-     */
-    public function check(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        return response()->json([
-            'success' => true,
-            'authenticated' => $user !== null && $user->role === 'admin',
-            'data' => $user ? new UserResource($user) : null
-        ]);
     }
 }

@@ -1,7 +1,3 @@
-<!-- ================================================================ -->
-<!-- 📝 FICHIER: resources/views/admin/app.blade.php -->
-<!-- ================================================================ -->
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -23,16 +19,9 @@
     <meta name="description" content="Administration VIVIAS SHOP - Boutique de mode sénégalaise">
     
     <!-- Styles -->
+     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/admin/app.jsx'])
-    
-    <!-- Configuration globale JavaScript -->
-    <script>
-        window.Laravel = {
-            csrfToken: '{{ csrf_token() }}',
-            baseUrl: '{{ config("app.url") }}',
-            locale: '{{ app()->getLocale() }}'
-        };
-    </script>
+
 </head>
 <body class="font-sans antialiased">
     <!-- Point de montage pour l'application React admin -->
@@ -54,17 +43,19 @@
         </div>
     </div>
     
-    <!-- Masquer le loader quand React est monté -->
+    <!-- Debug info (à supprimer en production) -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(() => {
-                const loader = document.getElementById('initial-loader');
-                if (loader) {
-                    loader.style.opacity = '0';
-                    setTimeout(() => loader.remove(), 300);
-                }
-            }, 1000);
-        });
+        console.log('🚀 Page admin chargée');
+        console.log('📍 URL actuelle:', window.location.href);
+        console.log('🔒 CSRF Token:', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'));
+        
+        // Vérifier que l'élément admin-app existe
+        const adminApp = document.getElementById('admin-app');
+        if (adminApp) {
+            console.log('✅ Élément #admin-app trouvé');
+        } else {
+            console.error('❌ Élément #admin-app non trouvé');
+        }
     </script>
 </body>
 </html>

@@ -1,12 +1,14 @@
 // ================================================================
-// 📝 FICHIER: resources/js/admin/pages/Dashboard.jsx
+// 📝 FICHIER: resources/js/admin/pages/Dashboard.jsx (CORRIGÉ)
 // ================================================================
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
     const { user, logout } = useAuth();
+    const navigate = useNavigate();
     const [stats, setStats] = useState({
         loading: true,
         data: null
@@ -29,6 +31,7 @@ const Dashboard = () => {
 
     const handleLogout = async () => {
         await logout();
+        navigate('/admin/login');
     };
 
     return (

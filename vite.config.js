@@ -1,7 +1,3 @@
-// ================================================================
-// 📝 FICHIER: vite.config.js (à modifier)
-// ================================================================
-
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import react from '@vitejs/plugin-react';
@@ -12,7 +8,7 @@ export default defineConfig({
             input: [
                 'resources/css/app.css',
                 'resources/js/app.js',
-                'resources/js/admin/app.jsx', // Entrée admin
+                'resources/js/admin/app.jsx',
             ],
             refresh: true,
         }),
@@ -23,5 +19,16 @@ export default defineConfig({
             '@': '/resources/js',
             '@admin': '/resources/js/admin',
         },
+    },
+    build: {
+        rollupOptions: {
+            external: [],
+        },
+        commonjsOptions: {
+            include: [/node_modules/],
+        },
+    },
+    optimizeDeps: {
+        include: ['react', 'react-dom', 'react-router-dom', 'react-hot-toast'],
     },
 });

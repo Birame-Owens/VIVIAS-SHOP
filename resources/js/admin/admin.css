@@ -1,5 +1,5 @@
 /* ================================================================ */
-/* 📝 FICHIER: resources/js/admin/admin.css */
+/* 📝 FICHIER: resources/js/admin/admin.css (TAILWIND V3) */
 /* ================================================================ */
 
 @import 'tailwindcss/base';
@@ -19,10 +19,240 @@
 }
 
 /* Styles de base pour l'application admin */
-body {
-  font-family: 'Inter', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  body {
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Composants réutilisables */
+@layer components {
+  /* Styles pour les formulaires */
+  .form-input {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200;
+  }
+
+  .form-input:focus {
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  }
+
+  /* Styles pour les boutons */
+  .btn-primary {
+    @apply bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all duration-200 transform hover:scale-105;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 font-semibold py-3 px-6 rounded-xl hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200;
+  }
+
+  .btn-success {
+    @apply bg-green-500 text-white font-semibold py-3 px-6 rounded-xl hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200;
+  }
+
+  .btn-danger {
+    @apply bg-red-500 text-white font-semibold py-3 px-6 rounded-xl hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200;
+  }
+
+  /* Styles pour les cartes */
+  .card {
+    @apply bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden;
+  }
+
+  .card-header {
+    @apply px-6 py-4 border-b border-gray-100 bg-gray-50;
+  }
+
+  .card-body {
+    @apply p-6;
+  }
+
+  /* Styles pour les badges */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  .badge-success {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-danger {
+    @apply bg-red-100 text-red-800;
+  }
+
+  .badge-info {
+    @apply bg-blue-100 text-blue-800;
+  }
+
+  .badge-gray {
+    @apply bg-gray-100 text-gray-800;
+  }
+
+  /* Styles pour le dashboard */
+  .stat-card {
+    @apply bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-200;
+  }
+
+  .stat-card-icon {
+    @apply w-12 h-12 rounded-xl flex items-center justify-center text-white;
+  }
+
+  .stat-card-value {
+    @apply text-3xl font-bold text-gray-900 mt-4;
+  }
+
+  .stat-card-label {
+    @apply text-sm text-gray-600 mt-1;
+  }
+
+  /* Styles pour les tableaux */
+  .data-table {
+    @apply w-full border-collapse;
+  }
+
+  .data-table th {
+    @apply px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200 bg-gray-50;
+  }
+
+  .data-table td {
+    @apply px-6 py-4 whitespace-nowrap border-b border-gray-200;
+  }
+
+  .data-table tr:hover {
+    @apply bg-gray-50;
+  }
+
+  /* Styles pour les modals */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black bg-opacity-50 z-40;
+  }
+
+  .modal-content {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+  }
+
+  .modal-panel {
+    @apply bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-screen overflow-y-auto;
+  }
+
+  /* Styles pour la sidebar */
+  .sidebar {
+    @apply fixed left-0 top-0 h-full w-64 bg-white shadow-lg border-r border-gray-200 z-30;
+  }
+
+  .sidebar-nav {
+    @apply flex flex-col space-y-1 px-4 py-4;
+  }
+
+  .sidebar-nav-item {
+    @apply flex items-center px-4 py-3 text-gray-700 rounded-xl hover:bg-purple-50 hover:text-purple-700 transition-colors duration-200;
+  }
+
+  .sidebar-nav-item.active {
+    @apply bg-purple-100 text-purple-700;
+  }
+
+  /* Styles pour le header */
+  .header {
+    @apply bg-white shadow-sm border-b border-gray-200 px-6 py-4;
+  }
+
+  /* Styles pour les formulaires complexes */
+  .form-section {
+    @apply space-y-6 mb-8;
+  }
+
+  .form-section-title {
+    @apply text-lg font-semibold text-gray-900 mb-4;
+  }
+
+  .form-group {
+    @apply space-y-2;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-gray-700;
+  }
+
+  .form-help {
+    @apply text-sm text-gray-500;
+  }
+
+  .form-error {
+    @apply text-sm text-red-600;
+  }
+
+  /* Styles pour les listes déroulantes */
+  .dropdown {
+    @apply relative inline-block text-left;
+  }
+
+  .dropdown-menu {
+    @apply absolute right-0 mt-2 w-56 rounded-xl shadow-lg bg-white border border-gray-200 z-10;
+  }
+
+  .dropdown-item {
+    @apply block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200;
+  }
+
+  /* Animations de chargement */
+  .skeleton {
+    @apply animate-pulse bg-gray-200 rounded;
+  }
+
+  .skeleton-text {
+    @apply h-4 bg-gray-200 rounded;
+  }
+
+  .skeleton-avatar {
+    @apply h-12 w-12 bg-gray-200 rounded-full;
+  }
+}
+
+/* Utilitaires personnalisés */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Styles responsives */
+  @media (max-width: 768px) {
+    .sidebar {
+      @apply transform -translate-x-full transition-transform duration-300;
+    }
+    
+    .sidebar.open {
+      @apply translate-x-0;
+    }
+    
+    .stat-card {
+      @apply p-4;
+    }
+    
+    .stat-card-value {
+      @apply text-2xl;
+    }
+  }
+
+  /* Print styles */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  }
 }
 
 /* Animations personnalisées */
@@ -54,250 +284,5 @@ body {
   }
   50% {
     opacity: 0.5;
-  }
-}
-
-/* Classes utilitaires personnalisées */
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-out;
-}
-
-.animate-slide-in {
-  animation: slideIn 0.3s ease-out;
-}
-
-.animate-pulse-slow {
-  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Styles pour les formulaires */
-.form-input {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200;
-}
-
-.form-input:focus {
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
-}
-
-/* Styles pour les boutons */
-.btn-primary {
-  @apply bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all duration-200 transform hover:scale-105;
-}
-
-.btn-secondary {
-  @apply bg-gray-200 text-gray-800 font-semibold py-3 px-6 rounded-xl hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200;
-}
-
-.btn-success {
-  @apply bg-green-500 text-white font-semibold py-3 px-6 rounded-xl hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200;
-}
-
-.btn-danger {
-  @apply bg-red-500 text-white font-semibold py-3 px-6 rounded-xl hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200;
-}
-
-/* Styles pour les cartes */
-.card {
-  @apply bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden;
-}
-
-.card-header {
-  @apply px-6 py-4 border-b border-gray-100 bg-gray-50;
-}
-
-.card-body {
-  @apply p-6;
-}
-
-/* Styles pour les badges */
-.badge {
-  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
-}
-
-.badge-success {
-  @apply bg-green-100 text-green-800;
-}
-
-.badge-warning {
-  @apply bg-yellow-100 text-yellow-800;
-}
-
-.badge-danger {
-  @apply bg-red-100 text-red-800;
-}
-
-.badge-info {
-  @apply bg-blue-100 text-blue-800;
-}
-
-.badge-gray {
-  @apply bg-gray-100 text-gray-800;
-}
-
-/* Styles pour le dashboard */
-.stat-card {
-  @apply bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-200;
-}
-
-.stat-card-icon {
-  @apply w-12 h-12 rounded-xl flex items-center justify-center text-white;
-}
-
-.stat-card-value {
-  @apply text-3xl font-bold text-gray-900 mt-4;
-}
-
-.stat-card-label {
-  @apply text-sm text-gray-600 mt-1;
-}
-
-.stat-card-change {
-  @apply text-sm font-medium mt-2;
-}
-
-.stat-card-change.positive {
-  @apply text-green-600;
-}
-
-.stat-card-change.negative {
-  @apply text-red-600;
-}
-
-/* Styles pour les tableaux */
-.data-table {
-  @apply w-full border-collapse;
-}
-
-.data-table th {
-  @apply px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200 bg-gray-50;
-}
-
-.data-table td {
-  @apply px-6 py-4 whitespace-nowrap border-b border-gray-200;
-}
-
-.data-table tr:hover {
-  @apply bg-gray-50;
-}
-
-/* Styles pour les notifications toast */
-.toast-container {
-  @apply fixed top-4 right-4 z-50 space-y-2;
-}
-
-/* Styles pour les modals */
-.modal-overlay {
-  @apply fixed inset-0 bg-black bg-opacity-50 z-40;
-}
-
-.modal-content {
-  @apply fixed inset-0 z-50 flex items-center justify-center p-4;
-}
-
-.modal-panel {
-  @apply bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-screen overflow-y-auto;
-}
-
-/* Styles pour la sidebar */
-.sidebar {
-  @apply fixed left-0 top-0 h-full w-64 bg-white shadow-lg border-r border-gray-200 z-30;
-}
-
-.sidebar-nav {
-  @apply flex flex-col space-y-1 px-4 py-4;
-}
-
-.sidebar-nav-item {
-  @apply flex items-center px-4 py-3 text-gray-700 rounded-xl hover:bg-purple-50 hover:text-purple-700 transition-colors duration-200;
-}
-
-.sidebar-nav-item.active {
-  @apply bg-purple-100 text-purple-700;
-}
-
-/* Styles pour le header */
-.header {
-  @apply bg-white shadow-sm border-b border-gray-200 px-6 py-4;
-}
-
-/* Styles responsives */
-@media (max-width: 768px) {
-  .sidebar {
-    @apply transform -translate-x-full transition-transform duration-300;
-  }
-  
-  .sidebar.open {
-    @apply translate-x-0;
-  }
-  
-  .stat-card {
-    @apply p-4;
-  }
-  
-  .stat-card-value {
-    @apply text-2xl;
-  }
-}
-
-/* Styles pour les graphiques */
-.chart-container {
-  @apply w-full h-64 p-4;
-}
-
-/* Styles pour les formulaires complexes */
-.form-section {
-  @apply space-y-6 mb-8;
-}
-
-.form-section-title {
-  @apply text-lg font-semibold text-gray-900 mb-4;
-}
-
-.form-group {
-  @apply space-y-2;
-}
-
-.form-label {
-  @apply block text-sm font-medium text-gray-700;
-}
-
-.form-help {
-  @apply text-sm text-gray-500;
-}
-
-.form-error {
-  @apply text-sm text-red-600;
-}
-
-/* Styles pour les listes déroulantes */
-.dropdown {
-  @apply relative inline-block text-left;
-}
-
-.dropdown-menu {
-  @apply absolute right-0 mt-2 w-56 rounded-xl shadow-lg bg-white border border-gray-200 z-10;
-}
-
-.dropdown-item {
-  @apply block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200;
-}
-
-/* Animations de chargement */
-.skeleton {
-  @apply animate-pulse bg-gray-200 rounded;
-}
-
-.skeleton-text {
-  @apply h-4 bg-gray-200 rounded;
-}
-
-.skeleton-avatar {
-  @apply h-12 w-12 bg-gray-200 rounded-full;
-}
-
-/* Print styles */
-@media print {
-  .no-print {
-    display: none !important;
   }
 }

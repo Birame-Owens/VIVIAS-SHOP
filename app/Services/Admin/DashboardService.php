@@ -2,6 +2,13 @@
 
 namespace App\Services\Admin;
 
+use App\Models\Client;
+use App\Models\Commande;
+use App\Models\Produit;
+use App\Models\Paiement;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+
 class DashboardService
 {
     /**
