@@ -1,12 +1,11 @@
 <?php
 // ================================================================
-// 📝 FICHIER: app/Http/Controllers/Api/Admin/AuthController.php (CORRIGÉ)
+// 📝 FICHIER: app/Http/Controllers/Api/Admin/AuthController.php (CORRIGÉ CSRF)
 // ================================================================
 
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\LoginRequest;
 use App\Http\Resources\Admin\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -22,23 +22,48 @@ class AuthController extends Controller
      */
     public function login(Request $request): JsonResponse
     {
-        // Validation simple des données
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|min:6',
-            'remember' => 'boolean'
+        // Log de debug
+        Log::info('Tentative de connexion admin', [
+            'email' => $request->email,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'has_csrf' => $request->hasHeader('X-CSRF-TOKEN'),
+            'csrf_from_cookie' => $request->header('X-CSRF-TOKEN') ? 'present' : 'missing'
         ]);
 
+        // Validation des données
         try {
-            $credentials = $request->only('email', 'password');
+            $validated = $request->validate([
+                'email' => 'required|email',
+                'password' => 'required|min:6',
+                'remember' => 'boolean'
+            ]);
+        } catch (ValidationException $e) {
+            Log::warning('Erreurs de validation login', [
+                'errors' => $e->errors(),
+                'email' => $request->email
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreurs de validation.',
+                'errors' => $e->errors()
+            ], 422);
+        }
+
+        try {
+            $credentials = [
+                'email' => $validated['email'],
+                'password' => $validated['password']
+            ];
             
-            Log::info('Tentative de connexion admin', [
+            Log::info('Tentative d\'authentification', [
                 'email' => $credentials['email'],
-                'ip' => $request->ip()
+                'remember' => $validated['remember'] ?? false
             ]);
 
             // Tentative de connexion
-            if (!Auth::attempt($credentials, $request->boolean('remember', false))) {
+            if (!Auth::attempt($credentials, $validated['remember'] ?? false)) {
                 Log::warning('Identifiants incorrects', [
                     'email' => $credentials['email'],
                     'ip' => $request->ip()
@@ -175,14 +200,21 @@ class AuthController extends Controller
             $user = $request->user();
 
             if ($user) {
-                // Supprimer tous les tokens de l'utilisateur
-                $user->tokens()->delete();
+                // Supprimer le token actuel ou tous les tokens
+                if ($request->boolean('all_devices', false)) {
+                    // Supprimer tous les tokens de l'utilisateur
+                    $user->tokens()->delete();
+                } else {
+                    // Supprimer seulement le token actuel
+                    $request->user()->currentAccessToken()?->delete();
+                }
 
                 // Log de la déconnexion
                 Log::info('Déconnexion administrateur', [
                     'user_id' => $user->id,
                     'email' => $user->email,
-                    'ip' => $request->ip()
+                    'ip' => $request->ip(),
+                    'all_devices' => $request->boolean('all_devices', false)
                 ]);
             }
 
@@ -239,10 +271,16 @@ class AuthController extends Controller
             }
 
             // Supprimer l'ancien token
-            $request->user()->currentAccessToken()->delete();
+            $request->user()->currentAccessToken()?->delete();
 
             // Créer un nouveau token
             $token = $user->createToken('admin-token', ['admin'])->plainTextToken;
+
+            Log::info('Token admin actualisé', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'ip' => $request->ip()
+            ]);
 
             return response()->json([
                 'success' => true,

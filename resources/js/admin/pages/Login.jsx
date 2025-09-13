@@ -1,10 +1,6 @@
-// ================================================================
-// 📝 FICHIER: resources/js/admin/pages/Login.jsx
-// ================================================================
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 
 const AdminLogin = () => {
     const [formData, setFormData] = useState({
@@ -14,38 +10,33 @@ const AdminLogin = () => {
     });
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const { login, user, isAuthenticated } = useAuth();
+
+    // Rediriger si déjà connecté
+    useEffect(() => {
+        if (isAuthenticated()) {
+            console.log('✅ Utilisateur déjà connecté, redirection...');
+            navigate('/admin/dashboard');
+        }
+    }, [user, isAuthenticated, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
 
+        console.log('🔐 Tentative de connexion depuis Login.jsx...', formData.email);
+
         try {
-            const response = await fetch('/api/admin/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify(formData)
-            });
+            const result = await login(formData);
 
-            const data = await response.json();
-
-            if (data.success) {
-                // Stocker le token
-                localStorage.setItem('admin_token', data.data.token);
-                localStorage.setItem('admin_user', JSON.stringify(data.data.user));
-                
-                toast.success(data.message);
-                
-                // Rediriger vers le dashboard
+            if (result.success) {
+                console.log('✅ Connexion réussie, redirection vers dashboard');
                 navigate('/admin/dashboard');
             } else {
-                toast.error(data.message || 'Erreur de connexion');
+                console.log('❌ Échec de connexion:', result.message);
             }
         } catch (error) {
-            console.error('Erreur de connexion:', error);
-            toast.error('Erreur de connexion. Veuillez réessayer.');
+            console.error('❌ Erreur lors de la connexion:', error);
         } finally {
             setLoading(false);
         }
@@ -59,126 +50,135 @@ const AdminLogin = () => {
         }));
     };
 
+    const fillTestCredentials = (userType) => {
+        if (userType === 'admin1') {
+            setFormData({
+                email: 'admin@vivias-shop.com',
+                password: 'amina123',
+                remember: false
+            });
+        } else if (userType === 'admin2') {
+            setFormData({
+                email: 'diopbirame8@gmail.com',
+                password: 'vivias2024',
+                remember: false
+            });
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 flex items-center justify-center p-4">
-            <div className="max-w-md w-full">
-                {/* Logo et titre */}
-                <div className="text-center mb-8">
-                    <div className="bg-white p-3 rounded-full inline-block mb-4 shadow-lg">
-                        <svg className="w-8 h-8 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                        </svg>
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+            <div className="w-full max-w-sm">
+                
+                {/* Bloc principal compact */}
+                <div className="bg-white rounded-lg shadow-lg p-6">
+                    
+                    {/* Logo large */}
+                    <div className="text-center mb-6">
+                        <img 
+                            src="/assets/images/vivias.jpg" 
+                            alt="VIVIA'S SHOP Logo" 
+                            className="w-32 h-32 object-cover rounded-full mx-auto mb-3 shadow-lg"
+                        />
+                        <p className="text-gray-600 text-sm mb-1">
+                            Administration
+                        </p>
                     </div>
-                    <h1 className="text-3xl font-bold text-white mb-2">VIVIAS SHOP</h1>
-                    <p className="text-blue-100">Administration</p>
-                </div>
 
-                {/* Formulaire de connexion */}
-                <div className="bg-white rounded-2xl shadow-2xl p-8">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-                        Connexion Administrateur
-                    </h2>
-
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Formulaire compact */}
+                    <form className="space-y-4" onSubmit={handleSubmit}>
+                        
                         {/* Email */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Adresse email
                             </label>
-                            <div className="relative">
-                                <input
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    required
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 pl-12"
-                                    placeholder="admin@vivias-shop.com"
-                                />
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-                                    <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
-                                    </svg>
-                                </div>
-                            </div>
+                            <input
+                                name="email"
+                                type="email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                required
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white focus:border-purple-500 focus:outline-none transition-all text-sm"
+                                placeholder="exemple@vivias-shop.com"
+                            />
                         </div>
 
                         {/* Mot de passe */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Mot de passe
                             </label>
-                            <div className="relative">
-                                <input
-                                    type="password"
-                                    name="password"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    required
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 pl-12"
-                                    placeholder="••••••••"
-                                />
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-                                    <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M18,8h-1V6c0-2.76-2.24-5-5-5S7,3.24,7,6v2H6c-1.1,0-2,0.9-2,2v10c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2V10C20,8.9,19.1,8,18,8z M12,17c-1.1,0-2-0.9-2-2s0.9-2,2-2s2,0.9,2,2S13.1,17,12,17z M15.1,8H8.9V6c0-1.71,1.39-3.1,3.1-3.1s3.1,1.39,3.1,3.1V8z"/>
-                                    </svg>
-                                </div>
-                            </div>
+                            <input
+                                name="password"
+                                type="password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                required
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white focus:border-purple-500 focus:outline-none transition-all text-sm"
+                                placeholder="Votre mot de passe"
+                            />
                         </div>
 
-                        {/* Se souvenir de moi */}
-                        <div className="flex items-center">
-                            <input
-                                type="checkbox"
-                                name="remember"
-                                checked={formData.remember}
-                                onChange={handleChange}
-                                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                            />
-                            <label className="ml-2 block text-sm text-gray-700">
+                        {/* Se souvenir + Mot de passe oublié */}
+                        <div className="flex items-center justify-between text-sm">
+                            <label className="flex items-center">
+                                <input
+                                    name="remember"
+                                    type="checkbox"
+                                    checked={formData.remember}
+                                    onChange={handleChange}
+                                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded mr-2"
+                                />
                                 Se souvenir de moi
                             </label>
+                            <a href="#" className="text-purple-600 hover:text-purple-800">
+                                Mot de passe oublié ?
+                            </a>
                         </div>
 
-                        {/* Bouton de connexion */}
+                        {/* Bouton connexion */}
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-4 rounded-lg font-semibold shadow-lg hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 px-4 rounded-md transition-colors duration-200 disabled:opacity-50 text-sm"
                         >
-                            {loading ? (
-                                <div className="flex items-center justify-center">
-                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                                    </svg>
-                                    Connexion en cours...
-                                </div>
-                            ) : (
-                                'Se connecter'
-                            )}
+                            {loading ? 'Connexion en cours...' : 'Se connecter'}
                         </button>
                     </form>
 
-                    {/* Informations de test */}
-                    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                        <p className="text-sm text-gray-600 text-center mb-2">
-                            <strong>Comptes de test :</strong>
+                    {/* Comptes de test - version compacte */}
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                        <p className="text-xs text-gray-600 text-center mb-3">
+                            Comptes de démonstration
                         </p>
-                        <div className="text-xs text-gray-500 space-y-1">
-                            <p>📧 admin@vivias-shop.com</p>
-                            <p>🔑 password123</p>
-                            <hr className="my-2" />
-                            <p>📧 diopbirame8@gmail.com</p>
-                            <p>🔑 vivias2024</p>
+                        
+                        <div className="space-y-2">
+                            <button
+                                type="button"
+                                onClick={() => fillTestCredentials('admin1')}
+                                className="w-full text-left p-2 bg-gray-50 hover:bg-purple-50 border border-gray-200 hover:border-purple-200 rounded text-xs transition-colors duration-200"
+                            >
+                                <div className="font-medium text-gray-900">Administrateur Principal</div>
+                                <div className="text-gray-600">admin@vivias-shop.com</div>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => fillTestCredentials('admin2')}
+                                className="w-full text-left p-2 bg-gray-50 hover:bg-purple-50 border border-gray-200 hover:border-purple-200 rounded text-xs transition-colors duration-200"
+                            >
+                                <div className="font-medium text-gray-900">Administrateur Birame</div>
+                                <div className="text-gray-600">diopbirame8@gmail.com</div>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="text-center mt-8">
-                    <p className="text-blue-100 text-sm">
-                        © 2024 VIVIAS SHOP - Boutique de mode sénégalaise
+                {/* Footer compact */}
+                <div className="text-center mt-4">
+                    <p className="text-xs text-gray-600">
+                        © 2024 VIVIA'S SHOP. Tous droits réservés.
                     </p>
                 </div>
             </div>

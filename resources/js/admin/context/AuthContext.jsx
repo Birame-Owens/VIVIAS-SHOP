@@ -1,5 +1,5 @@
 // ================================================================
-// 📝 FICHIER: AuthContext.jsx (CORRECTION CSRF)
+// 📝 FICHIER: resources/js/admin/context/AuthContext.jsx (CORRIGÉ CSRF)
 // ================================================================
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -19,6 +19,30 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [token, setToken] = useState(null);
+
+    // Fonction pour obtenir le token CSRF
+    const getCsrfToken = async () => {
+        try {
+            // D'abord essayer de récupérer depuis le meta tag
+            let csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            
+            if (!csrfToken) {
+                // Si pas de meta tag, faire un appel à /sanctum/csrf-cookie
+                await fetch('/sanctum/csrf-cookie', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                });
+                
+                // Réessayer de récupérer le token depuis le meta tag
+                csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            }
+            
+            return csrfToken;
+        } catch (error) {
+            console.error('Erreur récupération CSRF token:', error);
+            return null;
+        }
+    };
 
     useEffect(() => {
         console.log('🚀 AuthProvider monté');
@@ -45,29 +69,46 @@ export const AuthProvider = ({ children }) => {
         console.log('🔐 Tentative de connexion...', credentials.email);
         
         try {
-            // Obtenir le token CSRF depuis le meta tag
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            console.log('🔒 CSRF Token trouvé:', csrfToken ? 'Oui' : 'Non');
+            // Étape 1: Obtenir le token CSRF
+            const csrfToken = await getCsrfToken();
+            console.log('🔒 CSRF Token obtenu:', csrfToken ? 'Oui' : 'Non');
 
+            // Étape 2: Préparer les headers
+            const headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            };
+
+            // Ajouter le token CSRF s'il existe
+            if (csrfToken) {
+                headers['X-CSRF-TOKEN'] = csrfToken;
+            }
+
+            // Étape 3: Faire la requête de connexion
             const response = await fetch('/api/admin/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    // Envoyer le token CSRF dans le header
-                    ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }),
-                },
+                headers: headers,
                 credentials: 'same-origin', // Important pour les cookies de session
                 body: JSON.stringify(credentials)
             });
 
             console.log('📡 Statut réponse:', response.status);
 
+            // Gérer les erreurs spécifiques
             if (response.status === 419) {
-                console.error('❌ Erreur CSRF 419');
+                console.error('❌ Erreur CSRF 419 - Rechargement de la page recommandé');
                 toast.error('Erreur de sécurité. Rechargez la page et réessayez.');
-                return { success: false, message: 'Erreur CSRF' };
+                // Recharger automatiquement après 2 secondes
+                setTimeout(() => window.location.reload(), 2000);
+                return { success: false, message: 'Erreur CSRF - Page rechargée' };
+            }
+
+            if (response.status === 422) {
+                const errorData = await response.json();
+                console.log('❌ Erreurs de validation:', errorData);
+                toast.error('Erreurs de validation. Vérifiez vos données.');
+                return { success: false, message: 'Erreurs de validation', errors: errorData.errors };
             }
 
             const data = await response.json();
@@ -93,13 +134,35 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const logout = () => {
+    const logout = async () => {
         console.log('🚪 Déconnexion');
-        setUser(null);
-        setToken(null);
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_user');
-        toast.success('Déconnecté avec succès');
+        
+        try {
+            // Tenter la déconnexion côté serveur si on a un token
+            if (token) {
+                const csrfToken = await getCsrfToken();
+                await fetch('/api/admin/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }),
+                    },
+                    credentials: 'same-origin',
+                });
+            }
+        } catch (error) {
+            console.warn('Erreur lors de la déconnexion serveur:', error);
+        } finally {
+            // Nettoyer côté client dans tous les cas
+            setUser(null);
+            setToken(null);
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem('admin_user');
+            toast.success('Déconnecté avec succès');
+        }
     };
 
     const isAuthenticated = () => !!(user && token);

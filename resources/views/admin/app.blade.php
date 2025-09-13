@@ -19,7 +19,7 @@
     <meta name="description" content="Administration VIVIAS SHOP - Boutique de mode sénégalaise">
     
     <!-- Styles -->
-     @viteReactRefresh
+    @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/admin/app.jsx'])
 
 </head>
@@ -43,11 +43,27 @@
         </div>
     </div>
     
-    <!-- Debug info (à supprimer en production) -->
+    <!-- Configuration CSRF pour React -->
     <script>
+        // Configurer Axios avec le token CSRF globalement
+        window.axios = window.axios || {};
+        window.axios.defaults = window.axios.defaults || {};
+        window.axios.defaults.headers = window.axios.defaults.headers || {};
+        window.axios.defaults.headers.common = window.axios.defaults.headers.common || {};
+        
+        // Récupérer le token CSRF
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        if (csrfToken) {
+            window.axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+            window.csrfToken = csrfToken;
+        }
+        
+        // Configuration pour fetch API
+        window.csrfToken = csrfToken;
+        
         console.log('🚀 Page admin chargée');
         console.log('📍 URL actuelle:', window.location.href);
-        console.log('🔒 CSRF Token:', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'));
+        console.log('🔒 CSRF Token:', csrfToken ? 'Présent' : 'Manquant');
         
         // Vérifier que l'élément admin-app existe
         const adminApp = document.getElementById('admin-app');
