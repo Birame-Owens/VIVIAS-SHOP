@@ -1,5 +1,5 @@
 // ================================================================
-// 📝 FICHIER: resources/js/admin/components/Sidebar.jsx
+// 📝 FICHIER: resources/js/admin/components/Sidebar.jsx (VERSION FINALE)
 // ================================================================
 
 import React, { useState } from 'react';
@@ -101,81 +101,93 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             name: 'Dashboard',
             icon: Icons.LayoutDashboard,
             path: '/admin/dashboard',
-            color: 'text-blue-400'
-        },
-        {
-            name: 'Produits',
-            icon: Icons.Package,
-            path: '/admin/produits',
-            color: 'text-purple-400'
-        },
-        {
-            name: 'Commandes',
-            icon: Icons.ShoppingCart,
-            path: '/admin/commandes',
-            color: 'text-green-400'
-        },
-        {
-            name: 'Clients',
-            icon: Icons.Users,
-            path: '/admin/clients',
-            color: 'text-indigo-400'
-        },
-        {
-            name: 'Tailleurs',
-            icon: Icons.Scissors,
-            path: '/admin/tailleurs',
-            color: 'text-amber-400'
-        },
-        {
-            name: 'Stock',
-            icon: Icons.Warehouse,
-            path: '/admin/stock',
-            color: 'text-red-400'
+            color: 'text-blue-400',
+            implemented: true
         },
         {
             name: 'Catégories',
             icon: Icons.Tag,
             path: '/admin/categories',
-            color: 'text-cyan-400'
+            color: 'text-cyan-400',
+            implemented: true
+        },
+        {
+            name: 'Produits',
+            icon: Icons.Package,
+            path: '/admin/produits',
+            color: 'text-purple-400',
+            implemented: true
+        },
+        {
+            name: 'Commandes',
+            icon: Icons.ShoppingCart,
+            path: '/admin/commandes',
+            color: 'text-green-400',
+            implemented: false
+        },
+        {
+            name: 'Clients',
+            icon: Icons.Users,
+            path: '/admin/clients',
+            color: 'text-indigo-400',
+            implemented: false
+        },
+        {
+            name: 'Tailleurs',
+            icon: Icons.Scissors,
+            path: '/admin/tailleurs',
+            color: 'text-amber-400',
+            implemented: false
+        },
+        {
+            name: 'Stock',
+            icon: Icons.Warehouse,
+            path: '/admin/stock',
+            color: 'text-red-400',
+            implemented: false
         },
         {
             name: 'Paiements',
             icon: Icons.CreditCard,
             path: '/admin/paiements',
-            color: 'text-emerald-400'
+            color: 'text-emerald-400',
+            implemented: false
         },
         {
             name: 'Promotions',
             icon: Icons.Percent,
             path: '/admin/promotions',
-            color: 'text-orange-400'
+            color: 'text-orange-400',
+            implemented: false
         },
         {
             name: 'Avis Clients',
             icon: Icons.Star,
             path: '/admin/avis',
-            color: 'text-yellow-400'
+            color: 'text-yellow-400',
+            implemented: false
         },
         {
             name: 'Rapports',
             icon: Icons.BarChart3,
             path: '/admin/rapports',
-            color: 'text-pink-400'
+            color: 'text-pink-400',
+            implemented: false
         },
         {
             name: 'Paramètres',
             icon: Icons.Settings,
             path: '/admin/parametres',
-            color: 'text-gray-400'
+            color: 'text-gray-400',
+            implemented: false
         }
     ];
 
-    const handleMenuClick = (path, name) => {
-        if (path === '/admin/dashboard') {
+    const handleMenuClick = (path, name, implemented) => {
+        if (implemented) {
             navigate(path);
         } else {
-            // Pour les autres pages, afficher un message temporaire
+            // Pour les pages non implémentées, afficher un message temporaire
             alert(`Navigation vers ${name} - Sera implémenté prochainement`);
         }
         
@@ -267,13 +279,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                 return (
                                     <div key={item.name} className="relative">
                                         <button
-                                            onClick={() => handleMenuClick(item.path, item.name)}
+                                            onClick={() => handleMenuClick(item.path, item.name, item.implemented)}
                                             className={`
                                                 w-full flex items-center px-3 py-3 rounded-lg transition-all duration-200 text-left
                                                 ${isActive 
                                                     ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-white shadow-lg transform scale-[0.98]' 
                                                     : 'hover:bg-gray-800/30 text-gray-300 hover:text-white hover:transform hover:scale-[0.98]'
                                                 }
+                                                ${!item.implemented ? 'opacity-75' : ''}
                                                 group relative
                                             `}
                                             title={isCollapsed ? item.name : ''}
@@ -294,17 +307,32 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                                 <div className="flex-1 flex items-center justify-between">
                                                     <span className="font-medium text-sm transition-all duration-200">{item.name}</span>
                                                     
-                                                    {/* Indicateur actif */}
-                                                    {isActive && (
-                                                        <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
-                                                    )}
+                                                    {/* Indicateurs */}
+                                                    <div className="flex items-center space-x-2">
+                                                        {/* Badge implémenté */}
+                                                        {item.implemented && isActive && (
+                                                            <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                                                        )}
+                                                        
+                                                        {/* Badge non implémenté */}
+                                                        {!item.implemented && (
+                                                            <div className="text-xs px-1.5 py-0.5 bg-gray-700 text-gray-400 rounded text-[10px]">
+                                                                Bientôt
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
 
                                             {/* Tooltip pour mode collapsed */}
                                             {isCollapsed && (
                                                 <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-50 border border-gray-700 shadow-xl">
-                                                    {item.name}
+                                                    <div className="flex items-center space-x-2">
+                                                        <span>{item.name}</span>
+                                                        {!item.implemented && (
+                                                            <span className="text-xs text-gray-400">(Bientôt)</span>
+                                                        )}
+                                                    </div>
                                                     {/* Flèche du tooltip */}
                                                     <div className="absolute top-1/2 -left-1 transform -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45 border-l border-b border-gray-700"></div>
                                                 </div>
@@ -322,7 +350,21 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     {!isCollapsed ? (
                         <div className="space-y-3">
                             {/* Profil utilisateur */}
-                           
+                            <div className="flex items-center p-3 rounded-lg bg-gray-800/30">
+                                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
+                                    <span className="text-white text-sm font-bold">
+                                        {user?.name?.charAt(0) || 'A'}
+                                    </span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-white text-sm truncate">
+                                        {user?.name || 'Administrateur'}
+                                    </div>
+                                    <div className="text-gray-400 text-xs">
+                                        {user?.email || 'admin@vivias-shop.com'}
+                                    </div>
+                                </div>
+                            </div>
                             
                             {/* Bouton de déconnexion */}
                             <button
@@ -347,7 +389,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                 
                                 {/* Tooltip utilisateur */}
                                 <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-50 border border-gray-700 shadow-xl">
-                                    {user?.name || 'Administrateur'}
+                                    <div>{user?.name || 'Administrateur'}</div>
+                                    <div className="text-xs text-gray-400">{user?.email}</div>
                                     <div className="absolute top-1/2 -left-1 transform -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45 border-l border-b border-gray-700"></div>
                                 </div>
                             </div>
