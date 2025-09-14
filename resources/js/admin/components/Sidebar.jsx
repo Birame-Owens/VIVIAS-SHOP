@@ -4,10 +4,12 @@
 
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
     const location = useLocation();
     const navigate = useNavigate();
+    const { logout, user } = useAuth();
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     // Icônes SVG intégrées
@@ -86,6 +88,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
+        ),
+        LogOut: () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
         )
     };
 
@@ -94,29 +101,25 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             name: 'Dashboard',
             icon: Icons.LayoutDashboard,
             path: '/admin/dashboard',
-            color: 'text-blue-400',
-            badge: null
+            color: 'text-blue-400'
         },
         {
             name: 'Produits',
             icon: Icons.Package,
             path: '/admin/produits',
-            color: 'text-purple-400',
-            badge: '245'
+            color: 'text-purple-400'
         },
         {
             name: 'Commandes',
             icon: Icons.ShoppingCart,
             path: '/admin/commandes',
-            color: 'text-green-400',
-            badge: '12'
+            color: 'text-green-400'
         },
         {
             name: 'Clients',
             icon: Icons.Users,
             path: '/admin/clients',
-            color: 'text-indigo-400',
-            badge: '847'
+            color: 'text-indigo-400'
         },
         {
             name: 'Tailleurs',
@@ -128,9 +131,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             name: 'Stock',
             icon: Icons.Warehouse,
             path: '/admin/stock',
-            color: 'text-red-400',
-            badge: '8',
-            badgeColor: 'bg-red-500'
+            color: 'text-red-400'
         },
         {
             name: 'Catégories',
@@ -181,6 +182,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         // Fermer le sidebar sur mobile
         if (window.innerWidth < 1024) {
             setIsOpen(false);
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+        } catch (error) {
+            console.error('Erreur déconnexion:', error);
+            await logout();
         }
     };
 
@@ -279,22 +289,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                                 </div>
                                             </div>
 
-                                            {/* Texte et badge */}
+                                            {/* Texte */}
                                             {!isCollapsed && (
                                                 <div className="flex-1 flex items-center justify-between">
                                                     <span className="font-medium text-sm transition-all duration-200">{item.name}</span>
                                                     
-                                                    {/* Badge */}
-                                                    {item.badge && (
-                                                        <span className={`
-                                                            px-2 py-0.5 rounded-full text-xs font-semibold transition-all duration-200
-                                                            ${item.badgeColor || 'bg-purple-100/10 text-purple-300 border border-purple-500/30 group-hover:bg-purple-100/20'}
-                                                            ${item.badgeColor === 'bg-red-500' ? 'bg-red-500/20 text-red-300 border border-red-500/30 group-hover:bg-red-500/30' : ''}
-                                                        `}>
-                                                            {item.badge}
-                                                        </span>
-                                                    )}
-
                                                     {/* Indicateur actif */}
                                                     {isActive && (
                                                         <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
@@ -302,29 +301,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                                 </div>
                                             )}
 
-                                            {/* Badge pour mode collapsed */}
-                                            {isCollapsed && item.badge && (
-                                                <div className={`
-                                                    absolute -top-1 -right-1 w-5 h-5 rounded-full text-xs font-bold
-                                                    flex items-center justify-center transition-all duration-200
-                                                    ${item.badgeColor === 'bg-red-500' 
-                                                        ? 'bg-red-500 text-white animate-pulse' 
-                                                        : 'bg-purple-500 text-white'
-                                                    }
-                                                `}>
-                                                    {item.badge > 99 ? '99+' : item.badge}
-                                                </div>
-                                            )}
-
                                             {/* Tooltip pour mode collapsed */}
                                             {isCollapsed && (
                                                 <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-50 border border-gray-700 shadow-xl">
                                                     {item.name}
-                                                    {item.badge && (
-                                                        <span className="ml-2 px-1.5 py-0.5 bg-purple-600 rounded text-xs">
-                                                            {item.badge}
-                                                        </span>
-                                                    )}
                                                     {/* Flèche du tooltip */}
                                                     <div className="absolute top-1/2 -left-1 transform -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45 border-l border-b border-gray-700"></div>
                                                 </div>
@@ -337,22 +317,60 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     </div>
                 </nav>
 
-                {/* Footer - Hauteur fixe */}
-                {!isCollapsed && (
-                    <div className="flex-shrink-0 p-4 border-t border-gray-700/50">
-                        <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg p-3 border border-purple-500/20 transition-all duration-200 hover:from-purple-500/20 hover:to-pink-500/20">
-                            <div className="flex items-center space-x-2">
-                                <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                                    <span className="text-white text-xs font-bold">VS</span>
+                {/* Footer avec profil utilisateur et déconnexion */}
+                <div className="flex-shrink-0 p-4 border-t border-gray-700/50">
+                    {!isCollapsed ? (
+                        <div className="space-y-3">
+                            {/* Profil utilisateur */}
+                           
+                            
+                            {/* Bouton de déconnexion */}
+                            <button
+                                onClick={handleLogout}
+                                className="w-full flex items-center px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-all duration-200 group"
+                            >
+                                <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center mr-3 group-hover:bg-red-500/30 transition-colors">
+                                    <Icons.LogOut />
                                 </div>
-                                <div>
-                                    <p className="text-white text-xs font-medium">v1.0.0</p>
-                                    <p className="text-gray-400 text-xs">Dashboard</p>
+                                <span className="text-sm font-medium">Déconnexion</span>
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col space-y-2">
+                            {/* Avatar utilisateur en mode collapsed */}
+                            <div className="relative group">
+                                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto">
+                                    <span className="text-white text-sm font-bold">
+                                        {user?.name?.charAt(0) || 'A'}
+                                    </span>
+                                </div>
+                                
+                                {/* Tooltip utilisateur */}
+                                <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-50 border border-gray-700 shadow-xl">
+                                    {user?.name || 'Administrateur'}
+                                    <div className="absolute top-1/2 -left-1 transform -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45 border-l border-b border-gray-700"></div>
+                                </div>
+                            </div>
+                            
+                            {/* Bouton déconnexion en mode collapsed */}
+                            <div className="relative group">
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-10 h-10 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-all duration-200 flex items-center justify-center mx-auto"
+                                    title="Déconnexion"
+                                >
+                                    <Icons.LogOut />
+                                </button>
+                                
+                                {/* Tooltip déconnexion */}
+                                <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-50 border border-gray-700 shadow-xl">
+                                    Déconnexion
+                                    <div className="absolute top-1/2 -left-1 transform -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45 border-l border-b border-gray-700"></div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
         </>
     );
