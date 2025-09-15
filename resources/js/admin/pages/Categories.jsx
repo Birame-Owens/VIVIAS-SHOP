@@ -166,106 +166,138 @@ const Categories = () => {
     };
 
     // Soumettre le formulaire
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setSubmitting(true);
-        setFormErrors({});
+    // Dans Categories.jsx, modifiez la fonction handleSubmit :
+const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setFormErrors({});
 
-        try {
-            const formDataToSend = new FormData();
-            
-            Object.keys(formData).forEach(key => {
-                if (formData[key] !== null && formData[key] !== undefined) {
-                    formDataToSend.append(key, formData[key]);
-                }
-            });
-
-            const url = editingCategory 
-                ? `${API_BASE}/categories/${editingCategory.id}`
-                : `${API_BASE}/categories`;
-            
-            const method = editingCategory ? 'POST' : 'POST';
-            
-            // Pour la mise à jour, ajouter _method: PUT
-            if (editingCategory) {
-                formDataToSend.append('_method', 'PUT');
-            }
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                },
-                body: formDataToSend
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                toast.success(result.message);
-                closeModal();
-                loadCategories();
-            } else {
-                if (result.errors) {
-                    setFormErrors(result.errors);
-                } else {
-                    toast.error(result.message);
-                }
-            }
-        } catch (error) {
-            console.error('Erreur:', error);
-            toast.error('Erreur lors de la sauvegarde');
-        } finally {
-            setSubmitting(false);
+    try {
+        const formDataToSend = new FormData();
+        
+        // Ajouter le token CSRF pour Laravel
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        if (csrfToken) {
+            formDataToSend.append('_token', csrfToken);
         }
-    };
+        
+        Object.keys(formData).forEach(key => {
+            if (formData[key] !== null && formData[key] !== undefined) {
+                formDataToSend.append(key, formData[key]);
+            }
+        });
+
+        const url = editingCategory 
+            ? `${API_BASE}/categories/${editingCategory.id}`
+            : `${API_BASE}/categories`;
+        
+        // Pour la mise à jour, ajouter _method: PUT
+        if (editingCategory) {
+            formDataToSend.append('_method', 'PUT');
+        }
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+                // Ne pas inclure Content-Type avec FormData
+            },
+            body: formDataToSend
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            toast.success(result.message);
+            closeModal();
+            loadCategories();
+        } else {
+            if (result.errors) {
+                setFormErrors(result.errors);
+            } else {
+                toast.error(result.message);
+            }
+        }
+    } catch (error) {
+        console.error('Erreur:', error);
+        toast.error('Erreur lors de la sauvegarde');
+    } finally {
+        setSubmitting(false);
+    }
+};
 
     // Basculer le statut
-    const toggleStatus = async (category) => {
-        try {
-            const response = await fetch(`${API_BASE}/categories/${category.id}/toggle-status`, {
-                method: 'POST',
-                headers: getHeaders()
-            });
+   // Basculer le statut
+const toggleStatus = async (category) => {
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        };
 
-            const result = await response.json();
-            if (result.success) {
-                toast.success(result.message);
-                loadCategories();
-            } else {
-                toast.error(result.message);
-            }
-        } catch (error) {
-            console.error('Erreur:', error);
-            toast.error('Erreur lors du changement de statut');
+        if (csrfToken) {
+            headers['X-CSRF-TOKEN'] = csrfToken;
         }
-    };
+
+        const response = await fetch(`${API_BASE}/categories/${category.id}/toggle-status`, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({}) // Corps vide mais obligatoire pour POST
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            toast.success(result.message);
+            loadCategories();
+        } else {
+            toast.error(result.message);
+        }
+    } catch (error) {
+        console.error('Erreur:', error);
+        toast.error('Erreur lors du changement de statut');
+    }
+};
 
     // Supprimer une catégorie
-    const deleteCategory = async (category) => {
-        if (!confirm(`Êtes-vous sûr de vouloir supprimer la catégorie "${category.nom}" ?`)) {
-            return;
+   // Supprimer une catégorie
+const deleteCategory = async (category) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer la catégorie "${category.nom}" ?`)) {
+        return;
+    }
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+        };
+
+        if (csrfToken) {
+            headers['X-CSRF-TOKEN'] = csrfToken;
         }
 
-        try {
-            const response = await fetch(`${API_BASE}/categories/${category.id}`, {
-                method: 'DELETE',
-                headers: getHeaders()
-            });
+        const response = await fetch(`${API_BASE}/categories/${category.id}`, {
+            method: 'DELETE',
+            headers: headers
+        });
 
-            const result = await response.json();
-            if (result.success) {
-                toast.success(result.message);
-                loadCategories();
-            } else {
-                toast.error(result.message);
-            }
-        } catch (error) {
-            console.error('Erreur:', error);
-            toast.error('Erreur lors de la suppression');
+        const result = await response.json();
+        if (result.success) {
+            toast.success(result.message);
+            loadCategories();
+        } else {
+            toast.error(result.message);
         }
-    };
+    } catch (error) {
+        console.error('Erreur:', error);
+        toast.error('Erreur lors de la suppression');
+    }
+};
 
     return (
         <div className="p-6">

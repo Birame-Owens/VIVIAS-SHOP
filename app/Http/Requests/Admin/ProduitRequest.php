@@ -5,7 +5,7 @@ namespace App\Http\Requests\Admin;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
-
+use Illuminate\Validation\Rule; // AJOUTEZ CETTE LIGNE
 class ProduitRequest extends FormRequest
 {
     public function authorize(): bool
@@ -23,7 +23,7 @@ class ProduitRequest extends FormRequest
                 'string',
                 'min:3',
                 'max:200',
-                'unique:produits,nom,' . $produitId
+                Rule::unique('produits', 'nom')->ignore($produitId)
             ],
             'description' => [
                 'required',

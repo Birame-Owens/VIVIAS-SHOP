@@ -1,5 +1,5 @@
 // ================================================================
-// 📝 FICHIER: resources/js/admin/app.jsx (AVEC GESTION D'ERREURS)
+// 📝 FICHIER: resources/js/admin/app.jsx (VERSION COMPLÈTE CORRIGÉE AVEC COMMANDES)
 // ================================================================
 
 import React, { Suspense } from 'react';
@@ -10,7 +10,25 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLogin from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Categories from './pages/Categories';
+import Products from './pages/Products';
+import Commands from './pages/Commands'; // ← AJOUTER CETTE LIGNE
+import Sidebar from './components/Sidebar';
 import './admin.css';
+
+// Layout principal pour les pages admin
+const AdminLayout = ({ children }) => {
+    const [sidebarOpen, setSidebarOpen] = React.useState(false);
+
+    return (
+        <div className="min-h-screen bg-gray-50 flex">
+            <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+            <div className="flex-1 min-w-0 lg:ml-64">
+                {children}
+            </div>
+        </div>
+    );
+};
 
 // Composant de chargement
 const LoadingScreen = () => (
@@ -91,10 +109,39 @@ const App = () => {
                                 {/* Route de connexion */}
                                 <Route path="/admin/login" element={<AdminLogin />} />
                                 
-                                {/* Routes protégées */}
+                                {/* Routes protégées avec layout */}
                                 <Route path="/admin/dashboard" element={
                                     <ProtectedRoute>
-                                        <Dashboard />
+                                        <AdminLayout>
+                                            <Dashboard />
+                                        </AdminLayout>
+                                    </ProtectedRoute>
+                                } />
+
+                                <Route path="/admin/categories" element={
+                                    <ProtectedRoute>
+                                        <AdminLayout>
+                                            <Categories />
+                                        </AdminLayout>
+                                    </ProtectedRoute>
+                                } />
+
+                                <Route path="/admin/produits" element={
+                                    <ProtectedRoute>
+                                        <AdminLayout>
+                                            <Products />
+                                        </AdminLayout>
+                                    </ProtectedRoute>
+                                } />
+
+                                {/* AJOUTER CETTE ROUTE POUR LES COMMANDES */}
+                                <Route path="/admin/commandes" element={
+                                    <ProtectedRoute>
+                                        <AdminLayout>
+                                            <Suspense fallback={<LoadingScreen />}>
+                                                <Commands />
+                                            </Suspense>
+                                        </AdminLayout>
                                     </ProtectedRoute>
                                 } />
                                 
@@ -158,13 +205,16 @@ if (container) {
     // Afficher un message d'erreur à l'utilisateur
     document.body.innerHTML = `
         <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f3f4f6; font-family: system-ui;">
-            <div style="background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); text-align: center; max-width: 400px;">
-                <h2 style="color: #dc2626; margin-bottom: 1rem;">Erreur de chargement</h2>
+            <div style="text-align: center; background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                <h1 style="color: #dc2626; margin-bottom: 1rem;">Erreur de chargement</h1>
                 <p style="color: #6b7280; margin-bottom: 1rem;">L'élément #admin-app n'a pas été trouvé dans le DOM.</p>
-                <button onclick="window.location.reload()" style="background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.5rem; cursor: pointer;">
+                <p style="color: #6b7280; font-size: 0.875rem;">Vérifiez que le template Blade charge correctement l'application React.</p>
+                <button onclick="window.location.reload()" style="margin-top: 1rem; background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.5rem; cursor: pointer;">
                     Recharger la page
                 </button>
             </div>
         </div>
     `;
 }
+
+export default App;

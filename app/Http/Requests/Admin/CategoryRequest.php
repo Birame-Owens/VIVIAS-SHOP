@@ -5,6 +5,7 @@ namespace App\Http\Requests\Admin;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Rule;
 
 class CategoryRequest extends FormRequest
 {
@@ -15,21 +16,22 @@ class CategoryRequest extends FormRequest
 
     public function rules(): array
     {
-        $categoryId = $this->route('category') ? $this->route('category')->id : null;
+            $categoryId = $this->route('category') ? $this->route('category')->id : null;
 
-        return [
-            'nom' => [
-                'required',
-                'string',
-                'min:2',
-                'max:100',
-                'unique:categories,nom,' . $categoryId
-            ],
-            'description' => [
-                'nullable',
-                'string',
-                'max:1000'
-            ],
+    return [
+        'nom' => [
+            'required',
+            'string',
+            'min:2',
+            'max:100',
+            // CORRECTION ICI - utiliser Rule::unique au lieu de la syntaxe string
+            \Illuminate\Validation\Rule::unique('categories', 'nom')->ignore($categoryId)
+        ],
+        'description' => [
+            'nullable',
+            'string',
+            'max:1000'
+        ],
             'image' => [
                 'nullable',
                 'image',

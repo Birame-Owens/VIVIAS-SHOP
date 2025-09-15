@@ -119,11 +119,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             implemented: true
         },
         {
-            name: 'Commandes',
-            icon: Icons.ShoppingCart,
-            path: '/admin/commandes',
-            color: 'text-green-400',
-            implemented: false
+           name: 'Commandes',
+           icon: Icons.ShoppingCart,
+           path: '/admin/commandes',
+           color: 'text-green-400',
+           implemented: true // Changez de false à true
         },
         {
             name: 'Clients',
@@ -350,21 +350,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     {!isCollapsed ? (
                         <div className="space-y-3">
                             {/* Profil utilisateur */}
-                            <div className="flex items-center p-3 rounded-lg bg-gray-800/30">
-                                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
-                                    <span className="text-white text-sm font-bold">
-                                        {user?.name?.charAt(0) || 'A'}
-                                    </span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="font-medium text-white text-sm truncate">
-                                        {user?.name || 'Administrateur'}
-                                    </div>
-                                    <div className="text-gray-400 text-xs">
-                                        {user?.email || 'admin@vivias-shop.com'}
-                                    </div>
-                                </div>
-                            </div>
+                           
                             
                             {/* Bouton de déconnexion */}
                             <button
