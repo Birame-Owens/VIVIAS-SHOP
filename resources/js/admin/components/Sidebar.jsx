@@ -130,7 +130,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             icon: Icons.Users,
             path: '/admin/clients',
             color: 'text-indigo-400',
-            implemented: false
+            implemented: true // Changez de false à true
         },
         {
             name: 'Tailleurs',
@@ -147,18 +147,18 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             implemented: false
         },
         {
-            name: 'Paiements',
-            icon: Icons.CreditCard,
-            path: '/admin/paiements',
-            color: 'text-emerald-400',
-            implemented: false
+           name: 'Paiements',
+           icon: Icons.CreditCard,
+           path: '/admin/paiements',
+           color: 'text-emerald-400',
+           implemented: true
         },
         {
             name: 'Promotions',
             icon: Icons.Percent,
             path: '/admin/promotions',
             color: 'text-orange-400',
-            implemented: false
+            implemented: true
         },
         {
             name: 'Avis Clients',

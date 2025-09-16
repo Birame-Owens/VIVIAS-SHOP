@@ -12,7 +12,10 @@ import AdminLogin from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Categories from './pages/Categories';
 import Products from './pages/Products';
+import Paiements from './pages/Paiements';
 import Commands from './pages/Commands'; // ← AJOUTER CETTE LIGNE
+import Clients from './pages/Clients'; // ou le bon chemin
+import Promotions from './pages/Promotions';
 import Sidebar from './components/Sidebar';
 import './admin.css';
 
@@ -144,6 +147,33 @@ const App = () => {
                                         </AdminLayout>
                                     </ProtectedRoute>
                                 } />
+
+                                <Route path="/admin/clients" element={
+                                    <ProtectedRoute>
+                                      <AdminLayout>
+                                        <Clients />
+                                      </AdminLayout>
+                                     </ProtectedRoute>
+                               } />
+                               <Route  path="/admin/paiements"  element={
+                                  <ProtectedRoute>
+                                    <AdminLayout>
+                                     <Suspense fallback={<LoadingScreen />}>
+                                     <Paiements />
+                                    </Suspense>
+                                   </AdminLayout>
+                                  </ProtectedRoute>
+                                }  />
+
+                                   <Route   path="/admin/promotions"    element={
+                                     <ProtectedRoute>
+                                          <AdminLayout>
+                                             <Suspense fallback={<LoadingScreen />}>
+                                               <Promotions />
+                                            </Suspense>
+                                          </AdminLayout>
+                                   </ProtectedRoute>
+                                 } />
                                 
                                 {/* Redirection par défaut */}
                                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
