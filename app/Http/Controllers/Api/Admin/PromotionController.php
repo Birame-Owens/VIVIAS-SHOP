@@ -22,7 +22,7 @@ class PromotionController extends Controller
         $this->promotionService = $promotionService;
     }
 
-    /**
+    /**a
      * Liste toutes les promotions
      */
     public function index(Request $request): JsonResponse
@@ -392,64 +392,93 @@ class PromotionController extends Controller
     /**
      * Obtenir les options pour les formulaires
      */
-    public function options(): JsonResponse
-    {
+    /**
+ * Obtenir les options pour les formulaires
+ */
+
+/**
+ * Obtenir les options pour les formulaires
+ */
+/**
+ * Obtenir les options pour les formulaires
+ */
+public function options(): JsonResponse
+{
+    try {
+        $categories = [];
+        $produits = [];
+        
+        // Charger les catégories
         try {
-            $categories = Category::where('est_active', true)
-                ->select('id', 'nom')
-                ->get();
-
-            $produits = Produit::where('est_active', true)
-                ->select('id', 'nom', 'prix')
-                ->get();
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'types_promotion' => [
-                        ['value' => 'pourcentage', 'label' => 'Pourcentage (%)'],
-                        ['value' => 'montant_fixe', 'label' => 'Montant fixe (FCFA)'],
-                        ['value' => 'livraison_gratuite', 'label' => 'Livraison gratuite']
-                    ],
-                    'cibles_client' => [
-                        ['value' => 'tous', 'label' => 'Tous les clients'],
-                        ['value' => 'vip', 'label' => 'Clients VIP'],
-                        ['value' => 'inactifs', 'label' => 'Clients réguliers']
-                    ],
-                    'jours_semaine' => [
-                        ['value' => 1, 'label' => 'Lundi'],
-                        ['value' => 2, 'label' => 'Mardi'],
-                        ['value' => 3, 'label' => 'Mercredi'],
-                        ['value' => 4, 'label' => 'Jeudi'],
-                        ['value' => 5, 'label' => 'Vendredi'],
-                        ['value' => 6, 'label' => 'Samedi'],
-                        ['value' => 0, 'label' => 'Dimanche']
-                    ],
-                    'couleurs' => [
-                        ['value' => '#ef4444', 'label' => 'Rouge'],
-                        ['value' => '#f97316', 'label' => 'Orange'],
-                        ['value' => '#eab308', 'label' => 'Jaune'],
-                        ['value' => '#22c55e', 'label' => 'Vert'],
-                        ['value' => '#3b82f6', 'label' => 'Bleu'],
-                        ['value' => '#8b5cf6', 'label' => 'Violet'],
-                        ['value' => '#ec4899', 'label' => 'Rose']
-                    ],
-                    'categories' => $categories,
-                    'produits' => $produits
-                ]
-            ]);
-
+            if (class_exists('\App\Models\Category')) {
+                $categories = \App\Models\Category::where('est_active', true)
+                    ->select('id', 'nom')
+                    ->get();
+            }
         } catch (\Exception $e) {
-            Log::error('Erreur récupération options', [
-                'error' => $e->getMessage()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la récupération des options'
-            ], 500);
+            Log::warning('Impossible de charger les catégories', ['error' => $e->getMessage()]);
         }
+
+        // Charger les produits
+        try {
+            if (class_exists('\App\Models\Produit')) {
+                $produits = \App\Models\Produit::where('est_visible', true)
+                    ->select('id', 'nom', 'prix')
+                    ->get();
+            }
+        } catch (\Exception $e) {
+            Log::warning('Impossible de charger les produits', ['error' => $e->getMessage()]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'types_promotion' => [
+                    ['value' => 'pourcentage', 'label' => 'Pourcentage (%)'],
+                    ['value' => 'montant_fixe', 'label' => 'Montant fixe (FCFA)'],
+                    ['value' => 'livraison_gratuite', 'label' => 'Livraison gratuite']
+                ],
+                'cibles_client' => [
+                    ['value' => 'tous', 'label' => 'Tous les clients'],
+                    ['value' => 'nouveaux', 'label' => 'Nouveaux clients'],
+                    ['value' => 'vip', 'label' => 'Clients VIP'],
+                    ['value' => 'reguliers', 'label' => 'Clients réguliers']
+                ],
+                'jours_semaine' => [
+                    ['value' => 1, 'label' => 'Lundi'],
+                    ['value' => 2, 'label' => 'Mardi'],
+                    ['value' => 3, 'label' => 'Mercredi'],
+                    ['value' => 4, 'label' => 'Jeudi'],
+                    ['value' => 5, 'label' => 'Vendredi'],
+                    ['value' => 6, 'label' => 'Samedi'],
+                    ['value' => 0, 'label' => 'Dimanche']
+                ],
+                'couleurs' => [
+                    ['value' => '#ef4444', 'label' => 'Rouge'],
+                    ['value' => '#f97316', 'label' => 'Orange'],
+                    ['value' => '#eab308', 'label' => 'Jaune'],
+                    ['value' => '#22c55e', 'label' => 'Vert'],
+                    ['value' => '#3b82f6', 'label' => 'Bleu'],
+                    ['value' => '#8b5cf6', 'label' => 'Violet'],
+                    ['value' => '#ec4899', 'label' => 'Rose']
+                ],
+                'categories' => $categories,
+                'produits' => $produits
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Erreur récupération options', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la récupération des options'
+        ], 500);
     }
+}
 
     // ========== MÉTHODES PRIVÉES ==========
 

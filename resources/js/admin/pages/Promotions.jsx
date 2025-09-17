@@ -1016,6 +1016,17 @@ const FormModal = ({
     const [errors, setErrors] = useState({});
     const [imagePreview, setImagePreview] = useState(promotion?.image || null);
     
+    // Fonction pour formater la date pour les inputs date
+    const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+        try {
+            const date = new Date(dateString);
+            return date.toISOString().split('T')[0];
+        } catch (error) {
+            return '';
+        }
+    };
+    
     const [formData, setFormData] = useState({
         nom: promotion?.nom || '',
         code: promotion?.code || '',
@@ -1024,8 +1035,8 @@ const FormModal = ({
         valeur: promotion?.valeur || '',
         montant_minimum: promotion?.montant_minimum || '',
         reduction_maximum: promotion?.reduction_maximum || '',
-        date_debut: promotion?.date_debut_iso ? promotion.date_debut_iso.split('T')[0] : '',
-        date_fin: promotion?.date_fin_iso ? promotion.date_fin_iso.split('T')[0] : '',
+        date_debut: formatDateForInput(promotion?.date_debut_iso || promotion?.date_debut),
+        date_fin: formatDateForInput(promotion?.date_fin_iso || promotion?.date_fin),
         est_active: promotion?.est_active || false,
         utilisation_maximum: promotion?.utilisation_maximum || '',
         utilisation_par_client: promotion?.utilisation_par_client || 1,
@@ -1068,22 +1079,40 @@ const FormModal = ({
         try {
             const formDataToSend = new FormData();
             
+            // Préparer les données pour l'envoi
             Object.keys(formData).forEach(key => {
                 const value = formData[key];
-                if (value !== null && value !== '') {
-                    formDataToSend.append(key, value);
+                
+                // Ne pas envoyer les valeurs vides ou null
+                if (value !== null && value !== '' && value !== undefined) {
+                    // Convertir les valeurs booléennes en string pour FormData
+                    if (typeof value === 'boolean') {
+                        formDataToSend.append(key, value ? '1' : '0');
+                    } else if (value instanceof File) {
+                        // Pour les fichiers
+                        formDataToSend.append(key, value);
+                    } else {
+                        formDataToSend.append(key, value);
+                    }
                 }
             });
+
+            // Ajouter la méthode PUT pour l'édition (Laravel method spoofing)
+            if (isEditing) {
+                formDataToSend.append('_method', 'PUT');
+            }
 
             const url = isEditing 
                 ? `${API_BASE}/promotions/${promotion.id}` 
                 : `${API_BASE}/promotions`;
             
             const headers = getHeaders();
-            delete headers['Content-Type'];
+            delete headers['Content-Type']; // Laisser le navigateur définir le Content-Type pour FormData
+
+            console.log('Envoi des données:', Array.from(formDataToSend.entries())); // Debug
 
             const response = await fetch(url, {
-                method: isEditing ? 'PUT' : 'POST',
+                method: 'POST', // Toujours POST, même pour PUT avec FormData
                 headers: headers,
                 body: formDataToSend
             });
@@ -1096,11 +1125,13 @@ const FormModal = ({
             } else {
                 if (result.errors) {
                     setErrors(result.errors);
+                    console.log('Erreurs de validation:', result.errors);
                 } else {
                     toast.error(result.message);
                 }
             }
         } catch (error) {
+            console.error('Erreur lors de l\'enregistrement:', error);
             toast.error('Erreur lors de l\'enregistrement');
         } finally {
             setLoading(false);
