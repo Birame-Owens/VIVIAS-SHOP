@@ -163,9 +163,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         {
             name: 'Avis Clients',
             icon: Icons.Star,
-            path: '/admin/avis',
+             path: '/admin/avis-clients', // ← CORRECTION: doit correspondre à la route
             color: 'text-yellow-400',
-            implemented: false
+            implemented: true
         },
         {
             name: 'Rapports',

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Admin\CommandeController;
 use App\Http\Controllers\Api\Admin\ClientController;
 use App\Http\Controllers\Api\Admin\PaiementController;
 use App\Http\Controllers\Api\Admin\PromotionController;
+use App\Http\Controllers\Api\Admin\AvisClientController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -81,14 +82,33 @@ Route::prefix('admin')->group(function () {
         // À ajouter dans routes/api.php - section admin
 
 // Promotions - Routes RESTful complètes
-Route::get('/promotions/stats', [PromotionController::class, 'stats'])->name('admin.api.promotions.stats');
-Route::get('/promotions/options', [PromotionController::class, 'options'])->name('admin.api.promotions.options');
-Route::post('/promotions/validate-code', [PromotionController::class, 'validateCode'])->name('admin.api.promotions.validate-code');
+        Route::get('/promotions/stats', [PromotionController::class, 'stats'])->name('admin.api.promotions.stats');
+        Route::get('/promotions/options', [PromotionController::class, 'options'])->name('admin.api.promotions.options');
+        Route::post('/promotions/validate-code', [PromotionController::class, 'validateCode'])->name('admin.api.promotions.validate-code');
 
-Route::apiResource('promotions', PromotionController::class);
+        Route::apiResource('promotions', PromotionController::class);
 
 // Actions spécifiques sur les promotions
-Route::post('/promotions/{promotion}/toggle-status', [PromotionController::class, 'toggleStatus'])->name('admin.api.promotions.toggle-status');
-Route::post('/promotions/{promotion}/duplicate', [PromotionController::class, 'duplicate'])->name('admin.api.promotions.duplicate');
+       Route::post('/promotions/{promotion}/toggle-status', [PromotionController::class, 'toggleStatus'])->name('admin.api.promotions.toggle-status');
+       Route::post('/promotions/{promotion}/duplicate', [PromotionController::class, 'duplicate'])->name('admin.api.promotions.duplicate');
+
+
+       // Avis Clients - Gestion Admin uniquement
+Route::get('/avis-clients/stats', [AvisClientController::class, 'stats'])->name('admin.api.avis-clients.stats');
+Route::get('/avis-clients/options', [AvisClientController::class, 'options'])->name('admin.api.avis-clients.options');
+Route::get('/avis-clients/en-attente', [AvisClientController::class, 'enAttente'])->name('admin.api.avis-clients.en-attente');
+
+Route::apiResource('avis-clients', AvisClientController::class)->only(['index', 'show', 'destroy']);
+
+// Actions de modération admin
+Route::post('/avis-clients/{avis}/moderer', [AvisClientController::class, 'moderer'])->name('admin.api.avis-clients.moderer');
+Route::post('/avis-clients/{avis}/repondre', [AvisClientController::class, 'repondre'])->name('admin.api.avis-clients.repondre');
+Route::post('/avis-clients/{avis}/toggle-mise-en-avant', [AvisClientController::class, 'toggleMiseEnAvant'])->name('admin.api.avis-clients.toggle-mise-en-avant');
+Route::post('/avis-clients/{avis}/toggle-verifie', [AvisClientController::class, 'toggleVerifie'])->name('admin.api.avis-clients.toggle-verifie');
+
+
+
+
+
     });
 });
