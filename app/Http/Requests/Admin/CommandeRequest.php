@@ -16,11 +16,14 @@ class CommandeRequest extends FormRequest
     public function rules(): array
     {
         return [
+            // Informations client
             'client_id' => [
                 'required',
                 'integer',
                 'exists:clients,id'
             ],
+            
+            // Informations destinataire
             'nom_destinataire' => [
                 'required',
                 'string',
@@ -41,6 +44,8 @@ class CommandeRequest extends FormRequest
                 'string',
                 'max:1000'
             ],
+            
+            // Livraison
             'mode_livraison' => [
                 'required',
                 'string',
@@ -51,6 +56,8 @@ class CommandeRequest extends FormRequest
                 'date',
                 'after:now'
             ],
+            
+            // Notes
             'notes_client' => [
                 'nullable',
                 'string',
@@ -61,6 +68,8 @@ class CommandeRequest extends FormRequest
                 'string',
                 'max:1000'
             ],
+            
+            // Paramètres commande
             'priorite' => [
                 'required',
                 'string',
@@ -79,6 +88,8 @@ class CommandeRequest extends FormRequest
                 'string',
                 'max:20'
             ],
+            
+            // Montants
             'frais_livraison' => [
                 'required',
                 'numeric',
@@ -116,8 +127,33 @@ class CommandeRequest extends FormRequest
             ],
             'articles.*.personnalisations' => [
                 'nullable',
-                'json'
-            ]
+                'string'
+            ],
+            
+            // Mesures pour les articles
+            'articles.*.utilise_mesures_client' => [
+                'nullable',
+                'boolean'
+            ],
+            'articles.*.mesures' => [
+                'nullable',
+                'array'
+            ],
+            'articles.*.mesures.epaule' => 'nullable|numeric|min:0|max:200',
+            'articles.*.mesures.poitrine' => 'nullable|numeric|min:0|max:200',
+            'articles.*.mesures.taille' => 'nullable|numeric|min:0|max:200',
+            'articles.*.mesures.longueur_robe' => 'nullable|numeric|min:0|max:300',
+            'articles.*.mesures.tour_bras' => 'nullable|numeric|min:0|max:100',
+            'articles.*.mesures.tour_cuisses' => 'nullable|numeric|min:0|max:150',
+            'articles.*.mesures.longueur_jupe' => 'nullable|numeric|min:0|max:200',
+            'articles.*.mesures.ceinture' => 'nullable|numeric|min:0|max:200',
+            'articles.*.mesures.tour_fesses' => 'nullable|numeric|min:0|max:200',
+            'articles.*.mesures.buste' => 'nullable|numeric|min:0|max:200',
+            'articles.*.mesures.longueur_manches_longues' => 'nullable|numeric|min:0|max:150',
+            'articles.*.mesures.longueur_manches_courtes' => 'nullable|numeric|min:0|max:100',
+            'articles.*.mesures.longueur_short' => 'nullable|numeric|min:0|max:100',
+            'articles.*.mesures.cou' => 'nullable|numeric|min:0|max:100',
+            'articles.*.mesures.longueur_taille_basse' => 'nullable|numeric|min:0|max:100',
         ];
     }
 
@@ -201,13 +237,20 @@ class CommandeRequest extends FormRequest
             'articles.*.prix_unitaire.min' => 'Le prix unitaire ne peut pas être négatif.',
             
             'articles.*.personnalisations.json' => 'Les personnalisations doivent être au format JSON valide.',
+
+
+            // Mesures
+            'articles.*.mesures.*.numeric' => 'Les mesures doivent être des nombres.',
+            'articles.*.mesures.*.min' => 'Les mesures ne peuvent pas être négatives.',
         ];
     }
+
+
 
     /**
      * Préparer les données pour la validation
      */
-    protected function prepareForValidation(): void
+   protected function prepareForValidation(): void
     {
         $this->merge([
             'est_cadeau' => $this->boolean('est_cadeau', false),
@@ -215,17 +258,25 @@ class CommandeRequest extends FormRequest
             'remise' => (float) ($this->input('remise') ?? 0),
         ]);
 
-        // Nettoyer les articles
+        // Nettoyer les articles avec gestion des mesures
         if ($this->has('articles') && is_array($this->input('articles'))) {
             $articles = [];
             foreach ($this->input('articles') as $article) {
                 if (isset($article['produit_id']) && isset($article['quantite']) && isset($article['prix_unitaire'])) {
-                    $articles[] = [
+                    $cleanedArticle = [
                         'produit_id' => (int) $article['produit_id'],
                         'quantite' => (int) $article['quantite'],
                         'prix_unitaire' => (float) $article['prix_unitaire'],
-                        'personnalisations' => $article['personnalisations'] ?? null
+                        'personnalisations' => $article['personnalisations'] ?? null,
+                        'utilise_mesures_client' => (bool) ($article['utilise_mesures_client'] ?? false)
                     ];
+                    
+                    // Ajouter les mesures si présentes
+                    if (isset($article['mesures']) && is_array($article['mesures'])) {
+                        $cleanedArticle['mesures'] = $article['mesures'];
+                    }
+                    
+                    $articles[] = $cleanedArticle;
                 }
             }
             $this->merge(['articles' => $articles]);
@@ -253,38 +304,45 @@ class CommandeRequest extends FormRequest
     /**
      * Validation personnalisée
      */
-    public function withValidator(Validator $validator): void
+   public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            // Vérifier la cohérence des articles
             if ($this->has('articles')) {
                 $sousTotal = 0;
+                
                 foreach ($this->input('articles') as $index => $article) {
+                    // Calculer le sous-total
                     if (isset($article['quantite']) && isset($article['prix_unitaire'])) {
                         $sousTotal += $article['quantite'] * $article['prix_unitaire'];
                     }
+                    
+                    // Vérifier le stock
+                    if (isset($article['produit_id']) && isset($article['quantite'])) {
+                        $produit = \App\Models\Produit::find($article['produit_id']);
+                        if ($produit && $produit->gestion_stock && $produit->stock_disponible < $article['quantite']) {
+                            $validator->errors()->add(
+                                "articles.{$index}.quantite",
+                                "Stock insuffisant pour {$produit->nom}. Stock disponible: {$produit->stock_disponible}"
+                            );
+                        }
+                    }
+                    
+                    // Valider la cohérence des mesures
+                    if (!empty($article['utilise_mesures_client']) && !empty($article['mesures'])) {
+                        $validator->errors()->add(
+                            "articles.{$index}.mesures",
+                            "Vous ne pouvez pas utiliser à la fois les mesures du client et des mesures personnalisées."
+                        );
+                    }
                 }
 
-                // Calculer le total
+                // Vérifier le total
                 $fraisLivraison = (float) $this->input('frais_livraison', 0);
                 $remise = (float) $this->input('remise', 0);
                 $total = $sousTotal + $fraisLivraison - $remise;
 
                 if ($total < 0) {
                     $validator->errors()->add('remise', 'La remise ne peut pas être supérieure au montant de la commande.');
-                }
-
-                // Vérifier que les quantités demandées sont disponibles en stock
-                foreach ($this->input('articles') as $index => $article) {
-                    if (isset($article['produit_id']) && isset($article['quantite'])) {
-                        $produit = \App\Models\Produit::find($article['produit_id']);
-                        if ($produit && $produit->gestion_stock && $produit->stock_disponible < $article['quantite']) {
-                            $validator->errors()->add(
-                                "articles.{$index}.quantite",
-                                "Stock insuffisant pour le produit {$produit->nom}. Stock disponible: {$produit->stock_disponible}"
-                            );
-                        }
-                    }
                 }
             }
 

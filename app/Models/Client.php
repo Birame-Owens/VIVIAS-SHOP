@@ -145,4 +145,10 @@ class Client extends Model
 	{
 		return $this->hasMany(AvisClient::class);
 	}
+	// Dans App\Models\Client.php
+
+public function mesures()
+{
+    return $this->hasOne(MesureClient::class);
+}
 }

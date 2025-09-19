@@ -8,7 +8,9 @@ use App\Models\Produit;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+
 use Carbon\Carbon;
+
 
 class AvisClientService
 {
@@ -207,33 +209,36 @@ class AvisClientService
     /**
      * Obtenir les statistiques des avis
      */
-    public function getStatistiques(): array
-    {
-        return [
-            'total_avis' => AvisClient::count(),
-            'avis_en_attente' => AvisClient::where('statut', 'en_attente')->count(),
-            'avis_approuves' => AvisClient::where('statut', 'approuve')->count(),
-            'avis_rejetes' => AvisClient::where('statut', 'rejete')->count(),
-            'note_moyenne_globale' => AvisClient::where('statut', 'approuve')->avg('note_globale'),
-            'avis_avec_photos' => AvisClient::whereNotNull('photos_avis')->count(),
-            'avis_recommandent_produit' => AvisClient::where('statut', 'approuve')
-                ->where('recommande_produit', true)->count(),
-            'avis_recommandent_boutique' => AvisClient::where('statut', 'approuve')
-                ->where('recommande_boutique', true)->count(),
-            'avis_par_note' => AvisClient::where('statut', 'approuve')
-                ->select('note_globale', DB::raw('count(*) as total'))
-                ->groupBy('note_globale')
-                ->orderBy('note_globale', 'desc')
-                ->get()
-                ->keyBy('note_globale'),
-            'avis_recents' => AvisClient::with(['client', 'produit'])
-                ->orderBy('created_at', 'desc')
-                ->take(5)
-                ->get(),
-            'produits_les_mieux_notes' => $this->getProduitsLesMieuxNotes(),
-            'clients_plus_actifs' => $this->getClientsPlusActifs()
-        ];
-    }
+ public function getStatistiques(): array
+{
+    return [
+        'total_avis' => AvisClient::count(),
+        'avis_en_attente' => AvisClient::where('statut', 'en_attente')->count(),
+        'avis_approuves' => AvisClient::where('statut', 'approuve')->count(),
+        'avis_rejetes' => AvisClient::where('statut', 'rejete')->count(),
+        'note_moyenne_globale' => round(AvisClient::where('statut', 'approuve')->avg('note_globale') ?? 0, 1),
+        'avis_avec_photos' => AvisClient::whereNotNull('photos_avis')
+            ->whereRaw("photos_avis::text != '[]'")
+            ->whereRaw("photos_avis::text != 'null'")
+            ->count(),
+        'avis_recommandent_produit' => AvisClient::where('statut', 'approuve')
+            ->where('recommande_produit', true)->count(),
+        'avis_recommandent_boutique' => AvisClient::where('statut', 'approuve')
+            ->where('recommande_boutique', true)->count(),
+        'avis_par_note' => AvisClient::where('statut', 'approuve')
+            ->select('note_globale', DB::raw('count(*) as total'))
+            ->groupBy('note_globale')
+            ->orderBy('note_globale', 'desc')
+            ->get()
+            ->keyBy('note_globale'),
+        'avis_recents' => AvisClient::with(['client', 'produit'])
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get(),
+        'produits_les_mieux_notes' => $this->getProduitsLesMieuxNotes(),
+        'clients_plus_actifs' => $this->getClientsPlusActifs()
+    ];
+}
 
     /**
      * Obtenir les avis en attente de modération
@@ -300,15 +305,19 @@ class AvisClientService
     /**
  * Obtenir les clients les plus actifs en avis
  */
+   /**
+ * Obtenir les clients les plus actifs en avis
+ */
 private function getClientsPlusActifs(int $limit = 5): \Illuminate\Database\Eloquent\Collection
 {
-    return Client::select(['id', 'nom', 'prenom'])
+    return Client::whereHas('avis_clients', function ($query) {
+            $query->where('statut', 'approuve');
+        })
         ->withCount(['avis_clients as avis_clients_count' => function ($query) {
             $query->where('statut', 'approuve');
         }])
-        ->having('avis_clients_count', '>', 0)
         ->orderBy('avis_clients_count', 'desc')
-        ->limit($limit)
-        ->get();
+        ->take($limit)
+        ->get(['id', 'nom', 'prenom']);
 }
 }

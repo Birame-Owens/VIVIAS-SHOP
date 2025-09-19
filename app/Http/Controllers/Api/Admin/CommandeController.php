@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Commande;
+use App\Models\Client;
 use App\Http\Requests\Admin\CommandeRequest;
+use App\Services\Admin\CommandeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -12,6 +14,13 @@ use Illuminate\Support\Facades\DB;
 
 class CommandeController extends Controller
 {
+    protected CommandeService $commandeService;
+
+    public function __construct(CommandeService $commandeService)
+    {
+        $this->commandeService = $commandeService;
+    }
+
     /**
      * Liste toutes les commandes
      */
@@ -89,13 +98,49 @@ class CommandeController extends Controller
     }
 
     /**
+     * Créer une nouvelle commande
+     */
+    public function store(CommandeRequest $request): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            $commande = $this->commandeService->createCommande($request->validated());
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Commande créée avec succès',
+                'data' => [
+                    'commande' => $this->formatCommandeResponse($commande, true)
+                ]
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Erreur création commande', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création de la commande',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Afficher une commande spécifique
      */
     public function show(Commande $commande): JsonResponse
     {
         try {
             $commande->load([
-                'client',
+                'client.mesures',
                 'articles_commandes.produit.category',
                 'paiements',
                 'factures'
@@ -121,6 +166,59 @@ class CommandeController extends Controller
         }
     }
 
+    /**
+     * Obtenir les clients avec leurs mesures
+     */
+ // Dans CommandeController.php - méthode getClientsWithMesures
+
+public function getClientsWithMesures(): JsonResponse
+{
+    try {
+        $clients = Client::with('mesures')
+            ->select(
+                'id', 
+                'nom', 
+                'prenom', 
+                'telephone', 
+                'email',
+                'adresse_principale',  // AJOUTEZ CES CHAMPS
+                'quartier',
+                'ville',
+                'indications_livraison'
+            )
+            ->orderBy('nom')
+            ->get()
+            ->map(function ($client) {
+                return [
+                    'id' => $client->id,
+                    'nom_complet' => $client->nom . ' ' . $client->prenom,
+                    'telephone' => $client->telephone,
+                    'email' => $client->email,
+                    'adresse_principale' => $client->adresse_principale,
+                    'quartier' => $client->quartier,
+                    'ville' => $client->ville,
+                    'indications_livraison' => $client->indications_livraison,
+                    'a_mesures' => $client->mesures !== null,
+                    'mesures' => $client->mesures
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => ['clients' => $clients]
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Erreur récupération clients avec mesures', [
+            'error' => $e->getMessage()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la récupération des clients'
+        ], 500);
+    }
+}
     /**
      * Mettre à jour le statut d'une commande
      */
@@ -360,7 +458,7 @@ class CommandeController extends Controller
                 'note_satisfaction' => $commande->note_satisfaction,
                 'commentaire_satisfaction' => $commande->commentaire_satisfaction,
                 'articles' => $commande->articles_commandes->map(function ($article) {
-                    return [
+                    $articleData = [
                         'id' => $article->id,
                         'produit' => [
                             'id' => $article->produit->id,
@@ -371,8 +469,16 @@ class CommandeController extends Controller
                         'quantite' => $article->quantite,
                         'prix_unitaire' => $article->prix_unitaire,
                         'prix_total' => $article->prix_total_article,
-                        'personnalisations' => $article->personnalisations
+                        'personnalisations' => $article->personnalisations,
+                        'utilise_mesures_client' => $article->utilise_mesures_client ?? false,
                     ];
+
+                    // Ajouter les mesures si présentes
+                    if ($article->mesures_client) {
+                        $articleData['mesures'] = json_decode($article->mesures_client, true);
+                    }
+
+                    return $articleData;
                 }),
                 'paiements' => $commande->paiements->map(function ($paiement) {
                     return [
@@ -453,4 +559,96 @@ class CommandeController extends Controller
             }
         }
     }
+    /**
+ * Mettre à jour une commande
+ */
+public function update(CommandeRequest $request, Commande $commande): JsonResponse
+{
+    try {
+        DB::beginTransaction();
+
+        $updatedCommande = $this->commandeService->updateCommande($commande, $request->validated());
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Commande mise à jour avec succès',
+            'data' => [
+                'commande' => $this->formatCommandeResponse($updatedCommande, true)
+            ]
+        ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        
+        Log::error('Erreur mise à jour commande', [
+            'commande_id' => $commande->id,
+            'error' => $e->getMessage()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la mise à jour'
+        ], 500);
+    }
+}
+
+/**
+ * Supprimer une commande
+ */
+public function destroy(Commande $commande): JsonResponse
+{
+    try {
+
+         if ($commande->paiements()->exists()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Impossible de supprimer une commande avec des paiements associés'
+        ], 400);
+    }
+        // Vérifier si on peut supprimer
+        if (in_array($commande->statut, ['en_livraison', 'livree'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de supprimer une commande en livraison ou livrée'
+            ], 400);
+        }
+
+        DB::beginTransaction();
+
+        // Remettre en stock
+        foreach ($commande->articles_commandes as $article) {
+            if ($article->produit->gestion_stock) {
+                $article->produit->increment('stock_disponible', $article->quantite);
+            }
+        }
+
+        $commande->delete();
+
+        DB::commit();
+
+        Log::info('Commande supprimée', [
+            'commande_id' => $commande->id,
+            'numero_commande' => $commande->numero_commande,
+            'user_id' => auth()->id()
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Commande supprimée avec succès'
+        ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        
+        Log::error('Erreur suppression commande', [
+            'commande_id' => $commande->id,
+            'error' => $e->getMessage()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la suppression'
+        ], 500);
+    }
+}
 }
