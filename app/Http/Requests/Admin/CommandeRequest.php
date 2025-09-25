@@ -107,7 +107,8 @@ class CommandeRequest extends FormRequest
             'articles' => [
                 'required',
                 'array',
-                'min:1'
+                'min:1',
+                'max:20' // Limite à 20 articles par commande
             ],
             'articles.*.produit_id' => [
                 'required',
@@ -118,16 +119,27 @@ class CommandeRequest extends FormRequest
                 'required',
                 'integer',
                 'min:1',
-                'max:100'
+                'max:50'
             ],
             'articles.*.prix_unitaire' => [
                 'required',
                 'numeric',
                 'min:0'
             ],
-            'articles.*.personnalisations' => [
+            'articles.*.taille' => [
                 'nullable',
-                'string'
+                'string',
+                'in:XS,S,M,L,XL,XXL,XXXL'
+            ],
+            'articles.*.couleur' => [
+                'nullable',
+                'string',
+                'max:50'
+            ],
+            'articles.*.instructions' => [
+                'nullable',
+                'string',
+                'max:500'
             ],
             
             // Mesures pour les articles
@@ -139,6 +151,8 @@ class CommandeRequest extends FormRequest
                 'nullable',
                 'array'
             ],
+            
+            // Validation des mesures individuelles
             'articles.*.mesures.epaule' => 'nullable|numeric|min:0|max:200',
             'articles.*.mesures.poitrine' => 'nullable|numeric|min:0|max:200',
             'articles.*.mesures.taille' => 'nullable|numeric|min:0|max:200',
@@ -162,95 +176,67 @@ class CommandeRequest extends FormRequest
         return [
             // Client
             'client_id.required' => 'Le client est obligatoire.',
-            'client_id.integer' => 'L\'ID du client doit être un nombre entier.',
             'client_id.exists' => 'Le client sélectionné n\'existe pas.',
             
             // Destinataire
             'nom_destinataire.required' => 'Le nom du destinataire est obligatoire.',
-            'nom_destinataire.string' => 'Le nom du destinataire doit être une chaîne de caractères.',
-            'nom_destinataire.max' => 'Le nom du destinataire ne peut pas dépasser 100 caractères.',
+            'nom_destinataire.max' => 'Le nom ne peut pas dépasser 100 caractères.',
             
             'telephone_livraison.required' => 'Le téléphone de livraison est obligatoire.',
-            'telephone_livraison.string' => 'Le téléphone de livraison doit être une chaîne de caractères.',
-            'telephone_livraison.max' => 'Le téléphone de livraison ne peut pas dépasser 20 caractères.',
+            'telephone_livraison.max' => 'Le téléphone ne peut pas dépasser 20 caractères.',
             
             'adresse_livraison.required' => 'L\'adresse de livraison est obligatoire.',
-            'adresse_livraison.string' => 'L\'adresse de livraison doit être une chaîne de caractères.',
-            'adresse_livraison.max' => 'L\'adresse de livraison ne peut pas dépasser 500 caractères.',
-            
-            'instructions_livraison.string' => 'Les instructions de livraison doivent être une chaîne de caractères.',
-            'instructions_livraison.max' => 'Les instructions de livraison ne peuvent pas dépasser 1000 caractères.',
+            'adresse_livraison.max' => 'L\'adresse ne peut pas dépasser 500 caractères.',
             
             // Mode et date de livraison
             'mode_livraison.required' => 'Le mode de livraison est obligatoire.',
             'mode_livraison.in' => 'Le mode de livraison doit être : domicile, magasin ou point_relais.',
             
-            'date_livraison_prevue.date' => 'La date de livraison prévue doit être une date valide.',
-            'date_livraison_prevue.after' => 'La date de livraison prévue doit être dans le futur.',
-            
-            // Notes
-            'notes_client.string' => 'Les notes du client doivent être une chaîne de caractères.',
-            'notes_client.max' => 'Les notes du client ne peuvent pas dépasser 1000 caractères.',
-            
-            'notes_admin.string' => 'Les notes administratives doivent être une chaîne de caractères.',
-            'notes_admin.max' => 'Les notes administratives ne peuvent pas dépasser 1000 caractères.',
+            'date_livraison_prevue.date' => 'La date de livraison doit être une date valide.',
+            'date_livraison_prevue.after' => 'La date de livraison doit être dans le futur.',
             
             // Priorité
             'priorite.required' => 'La priorité est obligatoire.',
             'priorite.in' => 'La priorité doit être : normale, urgente ou tres_urgente.',
             
-            // Cadeau
-            'est_cadeau.boolean' => 'Le statut cadeau doit être vrai ou faux.',
-            'message_cadeau.string' => 'Le message cadeau doit être une chaîne de caractères.',
-            'message_cadeau.max' => 'Le message cadeau ne peut pas dépasser 500 caractères.',
-            
-            // Code promo
-            'code_promo.string' => 'Le code promo doit être une chaîne de caractères.',
-            'code_promo.max' => 'Le code promo ne peut pas dépasser 20 caractères.',
-            
             // Montants
             'frais_livraison.required' => 'Les frais de livraison sont obligatoires.',
             'frais_livraison.numeric' => 'Les frais de livraison doivent être un nombre.',
             'frais_livraison.min' => 'Les frais de livraison ne peuvent pas être négatifs.',
-            'frais_livraison.max' => 'Les frais de livraison ne peuvent pas dépasser 50 000.',
             
             'remise.numeric' => 'La remise doit être un nombre.',
             'remise.min' => 'La remise ne peut pas être négative.',
-            'remise.max' => 'La remise ne peut pas dépasser 1 000 000.',
             
             // Articles
             'articles.required' => 'Au moins un article est requis.',
-            'articles.array' => 'Les articles doivent être un tableau.',
             'articles.min' => 'Au moins un article est requis.',
+            'articles.max' => 'Maximum 20 articles par commande.',
             
-            'articles.*.produit_id.required' => 'L\'ID du produit est obligatoire.',
-            'articles.*.produit_id.integer' => 'L\'ID du produit doit être un nombre entier.',
+            'articles.*.produit_id.required' => 'Le produit est obligatoire pour chaque article.',
             'articles.*.produit_id.exists' => 'Le produit sélectionné n\'existe pas.',
             
             'articles.*.quantite.required' => 'La quantité est obligatoire.',
-            'articles.*.quantite.integer' => 'La quantité doit être un nombre entier.',
             'articles.*.quantite.min' => 'La quantité doit être d\'au moins 1.',
-            'articles.*.quantite.max' => 'La quantité ne peut pas dépasser 100.',
+            'articles.*.quantite.max' => 'La quantité ne peut pas dépasser 50.',
             
             'articles.*.prix_unitaire.required' => 'Le prix unitaire est obligatoire.',
             'articles.*.prix_unitaire.numeric' => 'Le prix unitaire doit être un nombre.',
-            'articles.*.prix_unitaire.min' => 'Le prix unitaire ne peut pas être négatif.',
+            'articles.*.prix_unitaire.min' => 'Le prix ne peut pas être négatif.',
             
-            'articles.*.personnalisations.json' => 'Les personnalisations doivent être au format JSON valide.',
-
-
+            'articles.*.taille.in' => 'La taille doit être : XS, S, M, L, XL, XXL ou XXXL.',
+            'articles.*.couleur.max' => 'La couleur ne peut pas dépasser 50 caractères.',
+            
             // Mesures
             'articles.*.mesures.*.numeric' => 'Les mesures doivent être des nombres.',
             'articles.*.mesures.*.min' => 'Les mesures ne peuvent pas être négatives.',
+            'articles.*.mesures.*.max' => 'Mesure invalide (trop grande).',
         ];
     }
-
-
 
     /**
      * Préparer les données pour la validation
      */
-   protected function prepareForValidation(): void
+    protected function prepareForValidation(): void
     {
         $this->merge([
             'est_cadeau' => $this->boolean('est_cadeau', false),
@@ -258,7 +244,7 @@ class CommandeRequest extends FormRequest
             'remise' => (float) ($this->input('remise') ?? 0),
         ]);
 
-        // Nettoyer les articles avec gestion des mesures
+        // Nettoyer les articles
         if ($this->has('articles') && is_array($this->input('articles'))) {
             $articles = [];
             foreach ($this->input('articles') as $article) {
@@ -267,13 +253,21 @@ class CommandeRequest extends FormRequest
                         'produit_id' => (int) $article['produit_id'],
                         'quantite' => (int) $article['quantite'],
                         'prix_unitaire' => (float) $article['prix_unitaire'],
-                        'personnalisations' => $article['personnalisations'] ?? null,
+                        'taille' => $article['taille'] ?? null,
+                        'couleur' => $article['couleur'] ?? null,
+                        'instructions' => $article['instructions'] ?? null,
                         'utilise_mesures_client' => (bool) ($article['utilise_mesures_client'] ?? false)
                     ];
                     
-                    // Ajouter les mesures si présentes
+                    // Nettoyer les mesures si présentes
                     if (isset($article['mesures']) && is_array($article['mesures'])) {
-                        $cleanedArticle['mesures'] = $article['mesures'];
+                        $mesures = [];
+                        foreach ($article['mesures'] as $key => $value) {
+                            if (is_numeric($value) && $value > 0) {
+                                $mesures[$key] = (float) $value;
+                            }
+                        }
+                        $cleanedArticle['mesures'] = $mesures;
                     }
                     
                     $articles[] = $cleanedArticle;
@@ -281,6 +275,93 @@ class CommandeRequest extends FormRequest
             }
             $this->merge(['articles' => $articles]);
         }
+    }
+
+    /**
+     * Validation personnalisée
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            if ($this->has('articles')) {
+                $sousTotal = 0;
+                
+                foreach ($this->input('articles') as $index => $article) {
+                    // Calculer le sous-total
+                    if (isset($article['quantite']) && isset($article['prix_unitaire'])) {
+                        $sousTotal += $article['quantite'] * $article['prix_unitaire'];
+                    }
+                    
+                    // Vérifier le stock disponible
+                    if (isset($article['produit_id']) && isset($article['quantite'])) {
+                        $produit = \App\Models\Produit::find($article['produit_id']);
+                        if ($produit && $produit->gestion_stock) {
+                            $stockDisponible = $produit->stock_disponible;
+                            
+                            // Si on modifie une commande existante, ajouter le stock de l'ancien article
+                            if ($this->route('commande')) {
+                                $commandeExistante = $this->route('commande');
+                                $ancienArticle = $commandeExistante->articles_commandes()
+                                    ->where('produit_id', $article['produit_id'])
+                                    ->first();
+                                if ($ancienArticle) {
+                                    $stockDisponible += $ancienArticle->quantite;
+                                }
+                            }
+                            
+                            if ($stockDisponible < $article['quantite']) {
+                                $validator->errors()->add(
+                                    "articles.{$index}.quantite",
+                                    "Stock insuffisant pour {$produit->nom}. Stock disponible: {$stockDisponible}"
+                                );
+                            }
+                        }
+                    }
+                    
+                    // Validation des mesures : ne peut pas avoir à la fois mesures client et mesures personnalisées
+                    if (!empty($article['utilise_mesures_client']) && !empty($article['mesures'])) {
+                        $validator->errors()->add(
+                            "articles.{$index}",
+                            "Vous ne pouvez pas utiliser à la fois les mesures du client et des mesures personnalisées."
+                        );
+                    }
+                    
+                    // Si taille standard sélectionnée, ne doit pas avoir de mesures
+                    if (!empty($article['taille']) && (!empty($article['mesures']) || !empty($article['utilise_mesures_client']))) {
+                        $validator->errors()->add(
+                            "articles.{$index}",
+                            "Si vous sélectionnez une taille standard, vous ne pouvez pas ajouter de mesures."
+                        );
+                    }
+                }
+
+                // Vérifier le total de la commande
+                $fraisLivraison = (float) $this->input('frais_livraison', 0);
+                $remise = (float) $this->input('remise', 0);
+                $total = $sousTotal + $fraisLivraison - $remise;
+
+                if ($total < 0) {
+                    $validator->errors()->add('remise', 'La remise ne peut pas être supérieure au montant de la commande.');
+                }
+
+                if ($total < 100) {
+                    $validator->errors()->add('articles', 'Le montant minimum d\'une commande est de 100 FCFA.');
+                }
+            }
+
+            // Vérifier la cohérence cadeau/message
+            if ($this->boolean('est_cadeau') && !$this->input('message_cadeau')) {
+                $validator->errors()->add('message_cadeau', 'Un message cadeau est requis si la commande est un cadeau.');
+            }
+
+            // Vérifier que le client existe et est actif
+            if ($this->input('client_id')) {
+                $client = \App\Models\Client::find($this->input('client_id'));
+                if (!$client) {
+                    $validator->errors()->add('client_id', 'Le client sélectionné n\'existe pas.');
+                }
+            }
+        });
     }
 
     /**
@@ -299,57 +380,5 @@ class CommandeRequest extends FormRequest
         }
 
         parent::failedValidation($validator);
-    }
-
-    /**
-     * Validation personnalisée
-     */
-   public function withValidator(Validator $validator): void
-    {
-        $validator->after(function (Validator $validator) {
-            if ($this->has('articles')) {
-                $sousTotal = 0;
-                
-                foreach ($this->input('articles') as $index => $article) {
-                    // Calculer le sous-total
-                    if (isset($article['quantite']) && isset($article['prix_unitaire'])) {
-                        $sousTotal += $article['quantite'] * $article['prix_unitaire'];
-                    }
-                    
-                    // Vérifier le stock
-                    if (isset($article['produit_id']) && isset($article['quantite'])) {
-                        $produit = \App\Models\Produit::find($article['produit_id']);
-                        if ($produit && $produit->gestion_stock && $produit->stock_disponible < $article['quantite']) {
-                            $validator->errors()->add(
-                                "articles.{$index}.quantite",
-                                "Stock insuffisant pour {$produit->nom}. Stock disponible: {$produit->stock_disponible}"
-                            );
-                        }
-                    }
-                    
-                    // Valider la cohérence des mesures
-                    if (!empty($article['utilise_mesures_client']) && !empty($article['mesures'])) {
-                        $validator->errors()->add(
-                            "articles.{$index}.mesures",
-                            "Vous ne pouvez pas utiliser à la fois les mesures du client et des mesures personnalisées."
-                        );
-                    }
-                }
-
-                // Vérifier le total
-                $fraisLivraison = (float) $this->input('frais_livraison', 0);
-                $remise = (float) $this->input('remise', 0);
-                $total = $sousTotal + $fraisLivraison - $remise;
-
-                if ($total < 0) {
-                    $validator->errors()->add('remise', 'La remise ne peut pas être supérieure au montant de la commande.');
-                }
-            }
-
-            // Vérifier la cohérence cadeau/message
-            if ($this->boolean('est_cadeau') && !$this->input('message_cadeau')) {
-                $validator->errors()->add('message_cadeau', 'Un message cadeau est requis si la commande est un cadeau.');
-            }
-        });
     }
 }

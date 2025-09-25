@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Admin\ClientController;
 use App\Http\Controllers\Api\Admin\PaiementController;
 use App\Http\Controllers\Api\Admin\PromotionController;
 use App\Http\Controllers\Api\Admin\AvisClientController;
+use App\Http\Controllers\Api\Admin\RapportController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -29,81 +30,108 @@ Route::prefix('admin')->group(function () {
         Route::post('/refresh', [AuthController::class, 'refresh']);
 
         // Dashboard
-        Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.api.dashboard');
-        Route::get('/dashboard/quick-stats', [DashboardController::class, 'quickStats'])->name('admin.api.dashboard.quick-stats');
+        Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/dashboard/quick-stats', [DashboardController::class, 'quickStats']);
 
-        // Catégories - Routes RESTful complètes
+        // =================== SYSTÈME DE RAPPORTS ===================
+        
+        // Liste et informations générales des rapports
+        Route::get('/rapports', [RapportController::class, 'index']);
+        Route::get('/rapports/dashboard', [RapportController::class, 'dashboard']);
+        Route::get('/rapports/alertes', [RapportController::class, 'alertes']);
+        Route::get('/rapports/tendances', [RapportController::class, 'tendances']);
+        
+        // Rapports spécifiques par type
+        Route::get('/rapports/ventes', [RapportController::class, 'ventes']);
+        Route::get('/rapports/produits', [RapportController::class, 'produits']);
+        Route::get('/rapports/clients', [RapportController::class, 'clients']);
+        Route::get('/rapports/financier', [RapportController::class, 'financier']);
+        Route::get('/rapports/stock', [RapportController::class, 'stock']);
+        Route::get('/rapports/commandes', [RapportController::class, 'commandes']);
+        Route::get('/rapports/tailleurs', [RapportController::class, 'tailleurs']);
+        Route::get('/rapports/tissus', [RapportController::class, 'tissus']);
+        // Dans la section rapports
+        Route::get('/rapports/analytics', [RapportController::class, 'analytics']);
+        Route::get('/rapports/performance-produits', [RapportController::class, 'performanceProduits']);
+
+
+        // Export et fonctionnalités avancées
+        Route::post('/rapports/export', [RapportController::class, 'export']);
+        Route::post('/rapports/comparatif', [RapportController::class, 'comparatif']);
+        Route::post('/rapports/planifier', [RapportController::class, 'planifier']);
+
+        // =================== FIN SYSTÈME DE RAPPORTS ===================
+
+        // Catégories
+        Route::get('/categories/options', [CategoryController::class, 'options']);
+        Route::post('/categories/{category}/toggle-status', [CategoryController::class, 'toggleStatus']);
         Route::apiResource('categories', CategoryController::class);
-        Route::get('/categories/options', [CategoryController::class, 'options'])->name('admin.api.categories.options');
-        Route::post('/categories/{category}/toggle-status', [CategoryController::class, 'toggleStatus'])->name('admin.api.categories.toggle-status');
 
-        // Produits - Routes RESTful complètes
+        // Produits
+        Route::post('/produits/{produit}/toggle-status', [ProduitController::class, 'toggleStatus']);
+        Route::post('/produits/{produit}/duplicate', [ProduitController::class, 'duplicate']);
+        Route::delete('/produits/{produit}/images/{image}', [ProduitController::class, 'deleteImage']);
+        Route::post('/produits/{produit}/images/order', [ProduitController::class, 'updateImagesOrder']);
         Route::apiResource('produits', ProduitController::class);
-        Route::post('/produits/{produit}/toggle-status', [ProduitController::class, 'toggleStatus'])->name('admin.api.produits.toggle-status');
-        Route::post('/produits/{produit}/duplicate', [ProduitController::class, 'duplicate'])->name('admin.api.produits.duplicate');
-        Route::delete('/produits/{produit}/images/{image}', [ProduitController::class, 'deleteImage'])->name('admin.api.produits.delete-image');
-        Route::post('/produits/{produit}/images/order', [ProduitController::class, 'updateImagesOrder'])->name('admin.api.produits.update-images-order');
 
-        // Commandes - Routes RESTful complètes
-        Route::get('/commandes/stats', [CommandeController::class, 'stats'])->name('admin.api.commandes.stats');
-        Route::get('/clients-with-mesures', [CommandeController::class, 'getClientsWithMesures'])->name('admin.api.clients.with-mesures');
+        // =================== COMMANDES - NOUVELLE IMPLÉMENTATION ===================
         
+        // Routes auxiliaires pour les commandes (AVANT les routes avec paramètres)
+        Route::get('/commandes/statistics', [CommandeController::class, 'getStatistics']);
+        Route::get('/commandes/clients-with-mesures', [CommandeController::class, 'getClientsWithMesures']);
+        Route::get('/commandes/produits', [CommandeController::class, 'getProduits']);
+        Route::get('/commandes/en-retard', [CommandeController::class, 'getCommandesEnRetard']);
+        Route::get('/commandes/urgentes', [CommandeController::class, 'getCommandesUrgentes']);
+        Route::get('/commandes/quick-search', [CommandeController::class, 'quickSearch']);
+        Route::get('/commandes/export', [CommandeController::class, 'export']);
+        Route::get('/commandes/daily-report', [CommandeController::class, 'getDailyReport']);
+        
+        // Routes avec paramètres de commande spécifique
+        Route::post('/commandes/{commande}/update-status', [CommandeController::class, 'updateStatus']);
+        Route::post('/commandes/{commande}/duplicate', [CommandeController::class, 'duplicate']);
+        Route::post('/commandes/{commande}/mark-paid', [CommandeController::class, 'markAsPaid']);
+        
+        // Routes CRUD principales (à la fin)
         Route::apiResource('commandes', CommandeController::class);
-        
-        Route::post('/commandes/{commande}/update-status', [CommandeController::class, 'updateStatus'])->name('admin.api.commandes.update-status');
-        Route::post('/commandes/{commande}/update-date-livraison', [CommandeController::class, 'updateDateLivraison'])->name('admin.api.commandes.update-date-livraison');
-        Route::post('/commandes/{commande}/cancel', [CommandeController::class, 'cancel'])->name('admin.api.commandes.cancel');
 
-        // Clients - Routes RESTful complètes
-        Route::get('/clients/stats', [ClientController::class, 'stats'])->name('admin.api.clients.stats');
-        Route::get('/clients/vip', [ClientController::class, 'vipClients'])->name('admin.api.clients.vip');
-        Route::get('/clients/inactive', [ClientController::class, 'inactiveClients'])->name('admin.api.clients.inactive');
-        Route::get('/clients/search', [ClientController::class, 'search'])->name('admin.api.clients.search');
-        
+        // =================== FIN COMMANDES ===================
+
+        // Clients
+        Route::get('/clients/stats', [ClientController::class, 'stats']);
+        Route::get('/clients/vip', [ClientController::class, 'vipClients']);
+        Route::get('/clients/inactive', [ClientController::class, 'inactiveClients']);
+        Route::get('/clients/search', [ClientController::class, 'search']);
+        Route::post('/clients/{client}/send-whatsapp', [ClientController::class, 'sendWhatsApp']);
+        Route::post('/clients/send-novelty-notification', [ClientController::class, 'sendNoveltyNotification']);
         Route::apiResource('clients', ClientController::class);
-        
-        // WhatsApp et notifications
-        Route::post('/clients/{client}/send-whatsapp', [ClientController::class, 'sendWhatsApp'])->name('admin.api.clients.send-whatsapp');
-        Route::post('/clients/send-novelty-notification', [ClientController::class, 'sendNoveltyNotification'])->name('admin.api.clients.send-novelty');
 
-        // Paiements - Routes RESTful complètes
-        Route::get('/paiements/stats', [PaiementController::class, 'stats'])->name('admin.api.paiements.stats');
-        Route::get('/paiements/payment-methods', [PaiementController::class, 'paymentMethods'])->name('admin.api.paiements.payment-methods');
-        
+        // Paiements
+        Route::get('/paiements/stats', [PaiementController::class, 'stats']);
+        Route::get('/paiements/payment-methods', [PaiementController::class, 'paymentMethods']);
+        Route::post('/paiements/{paiement}/confirm', [PaiementController::class, 'confirm']);
+        Route::post('/paiements/{paiement}/reject', [PaiementController::class, 'reject']);
+        Route::post('/paiements/{paiement}/refund', [PaiementController::class, 'refund']);
+        Route::get('/paiements/{paiement}/check-status', [PaiementController::class, 'checkStatus']);
+        Route::post('/paiements/webhook/wave', [PaiementController::class, 'webhookWave']);
+        Route::post('/paiements/webhook/orange-money', [PaiementController::class, 'webhookOrangeMoney']);
         Route::apiResource('paiements', PaiementController::class);
-        
-        // Actions spécifiques sur les paiements
-        Route::post('/paiements/{paiement}/confirm', [PaiementController::class, 'confirm'])->name('admin.api.paiements.confirm');
-        Route::post('/paiements/{paiement}/reject', [PaiementController::class, 'reject'])->name('admin.api.paiements.reject');
-        Route::post('/paiements/{paiement}/refund', [PaiementController::class, 'refund'])->name('admin.api.paiements.refund');
-        Route::get('/paiements/{paiement}/check-status', [PaiementController::class, 'checkStatus'])->name('admin.api.paiements.check-status');
-        
-        // Webhooks pour les paiements
-        Route::post('/paiements/webhook/wave', [PaiementController::class, 'webhookWave'])->name('admin.api.paiements.webhook.wave');
-        Route::post('/paiements/webhook/orange-money', [PaiementController::class, 'webhookOrangeMoney'])->name('admin.api.paiements.webhook.orange-money');
 
-        // Promotions - Routes RESTful complètes
-        Route::get('/promotions/stats', [PromotionController::class, 'stats'])->name('admin.api.promotions.stats');
-        Route::get('/promotions/options', [PromotionController::class, 'options'])->name('admin.api.promotions.options');
-        Route::post('/promotions/validate-code', [PromotionController::class, 'validateCode'])->name('admin.api.promotions.validate-code');
-
+        // Promotions
+        Route::get('/promotions/stats', [PromotionController::class, 'stats']);
+        Route::get('/promotions/options', [PromotionController::class, 'options']);
+        Route::post('/promotions/validate-code', [PromotionController::class, 'validateCode']);
+        Route::post('/promotions/{promotion}/toggle-status', [PromotionController::class, 'toggleStatus']);
+        Route::post('/promotions/{promotion}/duplicate', [PromotionController::class, 'duplicate']);
         Route::apiResource('promotions', PromotionController::class);
 
-        // Actions spécifiques sur les promotions
-        Route::post('/promotions/{promotion}/toggle-status', [PromotionController::class, 'toggleStatus'])->name('admin.api.promotions.toggle-status');
-        Route::post('/promotions/{promotion}/duplicate', [PromotionController::class, 'duplicate'])->name('admin.api.promotions.duplicate');
-
-        // Avis Clients - Gestion Admin uniquement
-        Route::get('/avis-clients/stats', [AvisClientController::class, 'stats'])->name('admin.api.avis-clients.stats');
-        Route::get('/avis-clients/options', [AvisClientController::class, 'options'])->name('admin.api.avis-clients.options');
-        Route::get('/avis-clients/en-attente', [AvisClientController::class, 'enAttente'])->name('admin.api.avis-clients.en-attente');
-
+        // Avis Clients
+        Route::get('/avis-clients/stats', [AvisClientController::class, 'stats']);
+        Route::get('/avis-clients/options', [AvisClientController::class, 'options']);
+        Route::get('/avis-clients/en-attente', [AvisClientController::class, 'enAttente']);
+        Route::post('/avis-clients/{avis}/moderer', [AvisClientController::class, 'moderer']);
+        Route::post('/avis-clients/{avis}/repondre', [AvisClientController::class, 'repondre']);
+        Route::post('/avis-clients/{avis}/toggle-mise-en-avant', [AvisClientController::class, 'toggleMiseEnAvant']);
+        Route::post('/avis-clients/{avis}/toggle-verifie', [AvisClientController::class, 'toggleVerifie']);
         Route::apiResource('avis-clients', AvisClientController::class)->only(['index', 'show', 'destroy']);
-
-        // Actions de modération admin
-        Route::post('/avis-clients/{avis}/moderer', [AvisClientController::class, 'moderer'])->name('admin.api.avis-clients.moderer');
-        Route::post('/avis-clients/{avis}/repondre', [AvisClientController::class, 'repondre'])->name('admin.api.avis-clients.repondre');
-        Route::post('/avis-clients/{avis}/toggle-mise-en-avant', [AvisClientController::class, 'toggleMiseEnAvant'])->name('admin.api.avis-clients.toggle-mise-en-avant');
-        Route::post('/avis-clients/{avis}/toggle-verifie', [AvisClientController::class, 'toggleVerifie'])->name('admin.api.avis-clients.toggle-verifie');
     });
 });

@@ -172,7 +172,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             icon: Icons.BarChart3,
             path: '/admin/rapports',
             color: 'text-pink-400',
-            implemented: false
+            implemented: true
         },
         {
             name: 'Paramètres',

@@ -17,6 +17,7 @@ import Commands from './pages/Commands'; // ← AJOUTER CETTE LIGNE
 import Clients from './pages/Clients'; // ou le bon chemin
 import Promotions from './pages/Promotions';
 import AvisClients from './pages/AvisClients';
+import Reports from './pages/Reports';
 import Sidebar from './components/Sidebar';
 import './admin.css';
 
@@ -185,6 +186,14 @@ const App = () => {
                                    </AdminLayout>
                                  </ProtectedRoute>
                                 } />
+                                <Route  path="/admin/rapports"  element={
+                                   <ProtectedRoute>
+                                     <AdminLayout>
+                                     <Suspense fallback={<LoadingScreen />}>
+                                        <Reports />
+                                     </Suspense>
+                                    </AdminLayout>
+                                 </ProtectedRoute>} />
                                 
                                 {/* Redirection par défaut */}
                                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />

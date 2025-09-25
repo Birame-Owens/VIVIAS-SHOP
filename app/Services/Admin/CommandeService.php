@@ -47,7 +47,7 @@ class CommandeService
                 'code_promo' => $data['code_promo'] ?? null,
                 'notes_client' => $data['notes_client'] ?? null,
                 'notes_admin' => $data['notes_admin'] ?? null,
-                'source' => 'boutique'
+                'source' => 'admin'
             ]);
 
             // Créer les articles de commande avec gestion des mesures
@@ -78,10 +78,15 @@ class CommandeService
     }
 
     /**
-     * Mettre à jour une commande
+     * Mettre à jour une commande (seulement si non payée)
      */
     public function updateCommande(Commande $commande, array $data): Commande
     {
+        // Vérifier si la commande peut être modifiée
+        if ($this->isCommandePaid($commande)) {
+            throw new \Exception('Impossible de modifier une commande déjà payée');
+        }
+
         DB::beginTransaction();
 
         try {
@@ -96,7 +101,7 @@ class CommandeService
                 $commande->articles_commandes()->delete();
                 
                 // Créer les nouveaux articles avec mesures
-                $this->createArticlesCommande($commande, $data['articles'], $data['client_id']);
+                $this->createArticlesCommande($commande, $data['articles'], $commande->client_id);
                 
                 // Décrémenter le stock pour les nouveaux articles
                 $this->decrementStock($data['articles']);
@@ -108,7 +113,8 @@ class CommandeService
             $commande->update($data);
 
             DB::commit();
-Log::info('Commande mise à jour', [
+
+            Log::info('Commande mise à jour', [
                 'commande_id' => $commande->id,
                 'numero_commande' => $commande->numero_commande,
                 'user_id' => auth()->id()
@@ -126,6 +132,97 @@ Log::info('Commande mise à jour', [
     }
 
     /**
+     * Supprimer une commande (seulement si non payée)
+     */
+    public function deleteCommande(Commande $commande): bool
+    {
+        if ($this->isCommandePaid($commande)) {
+            throw new \Exception('Impossible de supprimer une commande déjà payée');
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // Remettre en stock
+            $this->restoreStock($commande->articles_commandes);
+
+            // Supprimer les articles de commande
+            $commande->articles_commandes()->delete();
+
+            // Supprimer la commande
+            $commande->delete();
+
+            DB::commit();
+
+            Log::info('Commande supprimée', [
+                'commande_id' => $commande->id,
+                'numero_commande' => $commande->numero_commande,
+                'user_id' => auth()->id()
+            ]);
+
+            return true;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Erreur suppression commande', [
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Rechercher des commandes avec filtres avancés
+     */
+    public function searchCommandes(array $filters)
+    {
+        $query = Commande::with(['client', 'articles_commandes.produit'])
+            ->orderBy('created_at', 'desc');
+
+        // Recherche par numéro de commande
+        if (!empty($filters['numero_commande'])) {
+            $query->where('numero_commande', 'ILIKE', '%' . $filters['numero_commande'] . '%');
+        }
+
+        // Recherche par client
+        if (!empty($filters['client_search'])) {
+            $query->whereHas('client', function($q) use ($filters) {
+                $q->where('nom', 'ILIKE', '%' . $filters['client_search'] . '%')
+                  ->orWhere('prenom', 'ILIKE', '%' . $filters['client_search'] . '%')
+                  ->orWhere('telephone', 'ILIKE', '%' . $filters['client_search'] . '%');
+            });
+        }
+
+        // Recherche par produit
+        if (!empty($filters['produit_search'])) {
+            $query->whereHas('articles_commandes.produit', function($q) use ($filters) {
+                $q->where('nom', 'ILIKE', '%' . $filters['produit_search'] . '%');
+            });
+        }
+
+        // Filtrage par statut
+        if (!empty($filters['statut'])) {
+            $query->where('statut', $filters['statut']);
+        }
+
+        // Filtrage par date
+        if (!empty($filters['date_debut'])) {
+            $query->whereDate('created_at', '>=', $filters['date_debut']);
+        }
+
+        if (!empty($filters['date_fin'])) {
+            $query->whereDate('created_at', '<=', $filters['date_fin']);
+        }
+
+        // Filtrage par priorité
+        if (!empty($filters['priorite'])) {
+            $query->where('priorite', $filters['priorite']);
+        }
+
+        return $query;
+    }
+
+    /**
      * Calculer les montants de la commande
      */
     public function calculateMontants(array $articles, float $fraisLivraison, float $remise = 0): array
@@ -140,7 +237,7 @@ Log::info('Commande mise à jour', [
         
         return [
             'sous_total' => $sousTotal,
-            'total' => max(0, $total) // Éviter les totaux négatifs
+            'total' => max(0, $total)
         ];
     }
 
@@ -148,102 +245,188 @@ Log::info('Commande mise à jour', [
      * Générer un numéro de commande unique
      */
     public function generateNumeroCommande(): string
-    {
-        $year = date('Y');
-        $month = date('m');
-        
-        // Compter les commandes du mois
-        $count = Commande::whereYear('created_at', $year)
-                        ->whereMonth('created_at', $month)
-                        ->count();
-        
-        $numero = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-        
-        return "CMD-{$year}{$month}-{$numero}";
-    }
-
+{
+    $year = date('Y');
+    $month = date('m');
+    
+    // Trouver le plus grand numéro existant
+    $pattern = "CMD-{$year}{$month}-%";
+    $lastNumber = Commande::withTrashed()
+        ->where('numero_commande', 'LIKE', $pattern)
+        ->max(DB::raw("CAST(SUBSTRING(numero_commande FROM '-([0-9]+)$') AS INTEGER)"));
+    
+    $nextNumber = ($lastNumber ?? 0) + 1;
+    $numero = str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+    
+    return "CMD-{$year}{$month}-{$numero}";
+}
     /**
      * Obtenir les statistiques des commandes
      */
-    public function getStatistics(): array
+     public function getStatistics(): array
     {
+        $today = now()->startOfDay();
+        $thisMonth = now()->startOfMonth();
+        $thisYear = now()->startOfYear();
+
         return [
+            // Statistiques générales
             'total_commandes' => Commande::count(),
-            'commandes_aujourd_hui' => Commande::whereDate('created_at', today())->count(),
-            'commandes_ce_mois' => Commande::whereMonth('created_at', now()->month)->count(),
-            'chiffre_affaires_mois' => Commande::where('statut', 'livree')
-                ->whereMonth('created_at', now()->month)
-                ->sum('montant_total'),
+            'commandes_aujourd_hui' => Commande::whereDate('created_at', $today)->count(),
+            'commandes_ce_mois' => Commande::where('created_at', '>=', $thisMonth)->count(),
+            'commandes_cette_annee' => Commande::where('created_at', '>=', $thisYear)->count(),
+
+            // Chiffre d'affaires basé sur les PAIEMENTS VALIDÉS
+            'ca_total' => DB::table('paiements')
+                ->where('statut', 'valide')
+                ->sum('montant'),
+            
+            'ca_ce_mois' => DB::table('paiements')
+                ->where('statut', 'valide')
+                ->where('created_at', '>=', $thisMonth)
+                ->sum('montant'),
+                
+            'ca_cette_annee' => DB::table('paiements')
+                ->where('statut', 'valide')
+                ->where('created_at', '>=', $thisYear)
+                ->sum('montant'),
+
+            // Commandes par statut
             'commandes_par_statut' => Commande::select('statut', DB::raw('count(*) as total'))
                 ->groupBy('statut')
                 ->pluck('total', 'statut')
                 ->toArray(),
+
+            // Commandes en attente d'action
+            'commandes_en_attente' => Commande::where('statut', 'en_attente')->count(),
+            'commandes_en_preparation' => Commande::where('statut', 'en_preparation')->count(),
+            'commandes_pretes' => Commande::where('statut', 'prete')->count(),
+
+            // Commandes payées (entièrement)
+            'commandes_payees' => Commande::whereHas('paiements', function($query) {
+                $query->where('statut', 'valide');
+            })
+            ->whereRaw('(SELECT COALESCE(SUM(montant), 0) FROM paiements WHERE commande_id = commandes.id AND statut = \'valide\') >= montant_total')
+            ->count(),
+
+            // Commandes urgentes et en retard
+            'commandes_urgentes' => Commande::whereIn('priorite', ['urgente', 'tres_urgente'])
+                ->whereNotIn('statut', ['livree', 'annulee'])
+                ->count(),
             'commandes_en_retard' => Commande::where('date_livraison_prevue', '<', now())
                 ->whereNotIn('statut', ['livree', 'annulee'])
                 ->count(),
-            'commandes_urgentes' => Commande::where('priorite', 'urgente')
-                ->whereNotIn('statut', ['livree', 'annulee'])
-                ->count()
+
+            // Panier moyen basé sur les commandes PAYÉES
+            'panier_moyen' => round(DB::table('paiements')
+                ->where('statut', 'valide')
+                ->avg('montant') ?? 0, 0),
+            
+            // Top clients ce mois (basé sur les paiements)
+            'top_clients_mois' => DB::table('clients')
+                ->leftJoin('commandes', 'clients.id', '=', 'commandes.client_id')
+                ->leftJoin('paiements', function($join) use ($thisMonth) {
+                    $join->on('commandes.id', '=', 'paiements.commande_id')
+                         ->where('paiements.statut', 'valide')
+                         ->where('paiements.created_at', '>=', $thisMonth);
+                })
+                ->whereNull('clients.deleted_at')
+                ->whereNotNull('paiements.id')
+                ->select(
+                    'clients.id',
+                    'clients.nom',
+                    'clients.prenom',
+                    'clients.telephone',
+                    DB::raw('COUNT(DISTINCT paiements.id) as paiements_count'),
+                    DB::raw('SUM(paiements.montant) as total_paye')
+                )
+                ->groupBy('clients.id', 'clients.nom', 'clients.prenom', 'clients.telephone')
+                ->having(DB::raw('COUNT(DISTINCT paiements.id)'), '>', 0)
+                ->orderBy('total_paye', 'desc')
+                ->limit(5)
+                ->get(),
+
+            // Évolution mensuelle basée sur les paiements
+            'evolution_mensuelle' => $this->getEvolutionMensuellePayments()
         ];
     }
 
     /**
-     * Obtenir les commandes en retard
+     * Évolution mensuelle basée sur les paiements validés
      */
-    public function getCommandesEnRetard(): \Illuminate\Database\Eloquent\Collection
+    private function getEvolutionMensuellePayments(): array
     {
-        return Commande::with(['client', 'articles_commandes.produit'])
-            ->where('date_livraison_prevue', '<', now())
-            ->whereNotIn('statut', ['livree', 'annulee'])
-            ->orderBy('date_livraison_prevue')
-            ->get();
+        $evolution = [];
+        
+        for ($i = 5; $i >= 0; $i--) {
+            $date = now()->subMonths($i);
+            $startOfMonth = $date->copy()->startOfMonth();
+            $endOfMonth = $date->copy()->endOfMonth();
+            
+            $commandes = Commande::whereBetween('created_at', [$startOfMonth, $endOfMonth])->count();
+            
+            // CA basé sur les paiements validés du mois
+            $ca = DB::table('paiements')
+                ->where('statut', 'valide')
+                ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+                ->sum('montant');
+            
+            $evolution[] = [
+                'mois' => $date->format('M Y'),
+                'commandes' => $commandes,
+                'chiffre_affaires' => $ca
+            ];
+        }
+        
+        return $evolution;
     }
 
     /**
-     * Obtenir les commandes urgentes
+     * Vérifier si une commande est payée
      */
-    public function getCommandesUrgentes(): \Illuminate\Database\Eloquent\Collection
+    private function isCommandePaid(Commande $commande): bool
     {
-        return Commande::with(['client', 'articles_commandes.produit'])
-            ->whereIn('priorite', ['urgente', 'tres_urgente'])
-            ->whereNotIn('statut', ['livree', 'annulee'])
-            ->orderBy('priorite', 'desc')
-            ->orderBy('created_at')
-            ->get();
+        return $commande->paiements()
+            ->where('statut', 'valide')
+            ->sum('montant') >= $commande->montant_total;
     }
 
     // ========== MÉTHODES PRIVÉES ==========
 
     /**
-     * Créer les articles de commande avec gestion automatique des mesures
+     * Créer les articles de commande avec gestion des mesures
      */
     private function createArticlesCommande(Commande $commande, array $articles, int $clientId): void
     {
-        // Récupérer les mesures du client
-        $mesuresClient = MesureClient::where('client_id', $clientId)->first();
-
         foreach ($articles as $articleData) {
-            // Récupérer le produit
             $produit = Produit::find($articleData['produit_id']);
             
             $mesuresJson = null;
             $utiliseMesuresClient = false;
 
-            // Gestion des mesures
-            if (!empty($articleData['utilise_mesures_client']) && $mesuresClient) {
-                // Utiliser les mesures existantes du client
-                $mesuresArray = $mesuresClient->toArray();
-                unset($mesuresArray['id'], $mesuresArray['client_id'], $mesuresArray['created_at'], $mesuresArray['updated_at'], $mesuresArray['deleted_at']);
-                $mesuresJson = json_encode(array_filter($mesuresArray)); // Retirer les valeurs null
-                $utiliseMesuresClient = true;
-            } 
-            elseif (!empty($articleData['mesures_personnalisees']) && !empty($articleData['mesures'])) {
-                // Utiliser les mesures personnalisées et les sauvegarder si le client n'en a pas
-                $mesuresJson = json_encode($articleData['mesures']);
-                
-                // Sauvegarder automatiquement dans mesures_clients si le client n'a pas de mesures
-                if (!$mesuresClient) {
-                    $this->saveMesuresClient($clientId, $articleData['mesures']);
+            // Gestion des mesures personnalisées
+            if (!empty($articleData['mesures']) && is_array($articleData['mesures'])) {
+                // Filtrer les mesures vides
+                $mesuresFiltered = array_filter($articleData['mesures'], function($value) {
+                    return !is_null($value) && $value !== '' && $value > 0;
+                });
+
+                if (!empty($mesuresFiltered)) {
+                    $mesuresJson = json_encode($mesuresFiltered);
+                    
+                    // Sauvegarder dans mesures_clients si pas encore existant
+                    $this->saveMesuresClient($clientId, $mesuresFiltered);
+                }
+            }
+            // Sinon utiliser les mesures existantes du client
+            elseif (!empty($articleData['utilise_mesures_client'])) {
+                $mesuresClient = MesureClient::where('client_id', $clientId)->first();
+                if ($mesuresClient) {
+                    $mesuresArray = $mesuresClient->getMesuresRemplies();
+                    if (!empty($mesuresArray)) {
+                        $mesuresJson = json_encode($mesuresArray);
+                        $utiliseMesuresClient = true;
+                    }
                 }
             }
 
@@ -256,43 +439,54 @@ Log::info('Commande mise à jour', [
                 'quantite' => $articleData['quantite'],
                 'prix_unitaire' => $articleData['prix_unitaire'],
                 'prix_total_article' => $articleData['quantite'] * $articleData['prix_unitaire'],
-                'utilise_mesures_client' => $utiliseMesuresClient,
+                'taille_choisie' => $articleData['taille'] ?? null,
+                'couleur_choisie' => $articleData['couleur'] ?? null,
                 'mesures_client' => $mesuresJson,
-                'personnalisations' => json_encode([
-                    'taille' => $articleData['taille'] ?? null,
-                    'couleur' => $articleData['couleur'] ?? null,
-                    'tissu' => $articleData['tissu'] ?? null,
-                    'instructions' => $articleData['instructions'] ?? null,
-                ]),
+                'demandes_personnalisation' => $articleData['instructions'] ?? null,
+                'statut_production' => 'en_attente'
             ]);
         }
     }
 
     /**
-     * Sauvegarder les mesures du client
+     * Sauvegarder ou mettre à jour les mesures du client
      */
     private function saveMesuresClient(int $clientId, array $mesures): void
     {
         try {
-            MesureClient::create([
+            $mesureClient = MesureClient::where('client_id', $clientId)->first();
+            
+            $mesuresData = [
                 'client_id' => $clientId,
-                'epaule' => $mesures['epaule'] ?? null,
-                'poitrine' => $mesures['poitrine'] ?? null,
-                'taille' => $mesures['taille'] ?? null,
-                'longueur_robe' => $mesures['longueur_robe'] ?? null,
-                'tour_bras' => $mesures['tour_bras'] ?? null,
-                'tour_cuisses' => $mesures['tour_cuisses'] ?? null,
-                'longueur_jupe' => $mesures['longueur_jupe'] ?? null,
-                'ceinture' => $mesures['ceinture'] ?? null,
-                'tour_fesses' => $mesures['tour_fesses'] ?? null,
-                'buste' => $mesures['buste'] ?? null,
-                'longueur_manches_longues' => $mesures['longueur_manches_longues'] ?? null,
-                'longueur_manches_courtes' => $mesures['longueur_manches_courtes'] ?? null,
+                'date_prise_mesures' => now(),
+                'mesures_valides' => true
+            ];
+
+            // Mapper les mesures
+            $champsAutorises = [
+                'epaule', 'poitrine', 'taille', 'longueur_robe', 'tour_bras',
+                'tour_cuisses', 'longueur_jupe', 'ceinture', 'tour_fesses',
+                'buste', 'longueur_manches_longues', 'longueur_manches_courtes',
+                'longueur_short', 'cou', 'longueur_taille_basse'
+            ];
+
+            foreach ($champsAutorises as $champ) {
+                if (isset($mesures[$champ]) && is_numeric($mesures[$champ])) {
+                    $mesuresData[$champ] = floatval($mesures[$champ]);
+                }
+            }
+
+            if ($mesureClient) {
+                $mesureClient->update($mesuresData);
+            } else {
+                MesureClient::create($mesuresData);
+            }
+
+            Log::info('Mesures client sauvegardées', [
+                'client_id' => $clientId,
+                'action' => $mesureClient ? 'mise_a_jour' : 'creation'
             ]);
 
-            Log::info('Mesures client sauvegardées automatiquement', [
-                'client_id' => $clientId
-            ]);
         } catch (\Exception $e) {
             Log::warning('Erreur sauvegarde mesures client', [
                 'client_id' => $clientId,

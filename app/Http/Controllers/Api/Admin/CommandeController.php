@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Commande;
 use App\Models\Client;
+use App\Models\Produit;
 use App\Http\Requests\Admin\CommandeRequest;
 use App\Services\Admin\CommandeService;
 use Illuminate\Http\JsonResponse;
@@ -22,80 +23,115 @@ class CommandeController extends Controller
     }
 
     /**
-     * Liste toutes les commandes
+     * Liste des commandes avec recherche et filtres
      */
     public function index(Request $request): JsonResponse
-    {
-        try {
-            $perPage = $request->get('per_page', 15);
-            $search = $request->get('search');
-            $statut = $request->get('statut');
-            $statutPaiement = $request->get('statut_paiement');
-            $sort = $request->get('sort', 'created_at');
-            $direction = $request->get('direction', 'desc');
+{
+    try {
+        Log::info('=== DEBUG COMMANDES INDEX ===', [
+            'request_params' => $request->all(),
+            'user_id' => auth()->id()
+        ]);
 
-            $query = Commande::with(['client', 'articles_commandes.produit']);
+        // Test 1: Compter toutes les commandes
+        $totalCommandes = Commande::count();
+        Log::info('Total commandes dans la DB:', ['count' => $totalCommandes]);
 
-            // Recherche
-            if ($search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('numero_commande', 'ILIKE', "%{$search}%")
-                      ->orWhere('nom_destinataire', 'ILIKE', "%{$search}%")
-                      ->orWhere('telephone_livraison', 'ILIKE', "%{$search}%")
-                      ->orWhereHas('client', function ($clientQuery) use ($search) {
-                          $clientQuery->where('nom', 'ILIKE', "%{$search}%")
-                                    ->orWhere('email', 'ILIKE', "%{$search}%");
-                      });
-                });
-            }
+        // Test 2: Récupérer les commandes avec relations
+        $commandesWithRelations = Commande::with(['client', 'articles_commandes.produit'])->get();
+        Log::info('Commandes avec relations:', [
+            'count' => $commandesWithRelations->count(),
+            'first_commande' => $commandesWithRelations->first() ? [
+                'id' => $commandesWithRelations->first()->id,
+                'numero' => $commandesWithRelations->first()->numero_commande,
+                'has_client' => $commandesWithRelations->first()->client !== null,
+                'articles_count' => $commandesWithRelations->first()->articles_commandes->count()
+            ] : null
+        ]);
 
-            // Filtrer par statut
-            if ($statut) {
-                $query->where('statut', $statut);
-            }
+        $perPage = $request->get('per_page', 15);
+        
+        // Construire les filtres
+        $filters = [
+            'numero_commande' => $request->get('numero_commande'),
+            'client_search' => $request->get('client_search'),
+            'produit_search' => $request->get('produit_search'),
+            'statut' => $request->get('statut'),
+            'date_debut' => $request->get('date_debut'),
+            'date_fin' => $request->get('date_fin'),
+            'priorite' => $request->get('priorite')
+        ];
 
-            // Filtrer par statut de paiement
-            if ($statutPaiement) {
-                $query->whereHas('paiements', function ($q) use ($statutPaiement) {
-                    $q->where('statut', $statutPaiement);
-                });
-            }
+        Log::info('Filtres appliqués:', $filters);
 
-            // Tri
-            $allowedSorts = ['numero_commande', 'montant_total', 'statut', 'created_at', 'date_livraison_prevue'];
-            if (in_array($sort, $allowedSorts)) {
-                $query->orderBy($sort, $direction);
-            }
+        // Test 3: Rechercher avec filtres
+        $query = $this->commandeService->searchCommandes($filters);
+        
+        Log::info('Requête SQL:', [
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings(),
+            'count_before_pagination' => $query->count()
+        ]);
+        
+        // Paginer
+        $commandes = $query->paginate($perPage);
 
-            $commandes = $query->paginate($perPage);
+        Log::info('Résultat après pagination:', [
+            'items_count' => $commandes->count(),
+            'total' => $commandes->total(),
+            'current_page' => $commandes->currentPage(),
+            'per_page' => $commandes->perPage(),
+            'last_page' => $commandes->lastPage()
+        ]);
 
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'commandes' => $commandes->map(function ($commande) {
-                        return $this->formatCommandeResponse($commande);
-                    }),
-                    'pagination' => [
-                        'current_page' => $commandes->currentPage(),
-                        'per_page' => $commandes->perPage(),
-                        'total' => $commandes->total(),
-                        'last_page' => $commandes->lastPage(),
-                    ]
-                ]
+        // Test 4: Formater une commande pour voir si le problème est là
+        if ($commandes->count() > 0) {
+            $premiereCommande = $commandes->first();
+            Log::info('Première commande avant formatage:', [
+                'raw_data' => $premiereCommande->toArray()
             ]);
-
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la récupération des commandes', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la récupération des commandes'
-            ], 500);
+            
+            $formatee = $this->formatCommandeList($premiereCommande);
+            Log::info('Première commande après formatage:', $formatee);
         }
+
+        $result = [
+            'success' => true,
+            'data' => [
+                'commandes' => $commandes->map(function ($commande) {
+                    return $this->formatCommandeList($commande);
+                }),
+                'pagination' => [
+                    'current_page' => $commandes->currentPage(),
+                    'per_page' => $commandes->perPage(),
+                    'total' => $commandes->total(),
+                    'last_page' => $commandes->lastPage()
+                ]
+            ],
+            'debug' => [
+                'total_db' => $totalCommandes,
+                'filtered_count' => $query->count(),
+                'paginated_count' => $commandes->count()
+            ]
+        ];
+
+        Log::info('Réponse finale:', $result);
+
+        return response()->json($result);
+
+    } catch (\Exception $e) {
+        Log::error('Erreur lors de la récupération des commandes', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la récupération des commandes',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Créer une nouvelle commande
@@ -113,7 +149,7 @@ class CommandeController extends Controller
                 'success' => true,
                 'message' => 'Commande créée avec succès',
                 'data' => [
-                    'commande' => $this->formatCommandeResponse($commande, true)
+                    'commande' => $this->formatCommandeDetail($commande)
                 ]
             ], 201);
 
@@ -134,7 +170,7 @@ class CommandeController extends Controller
     }
 
     /**
-     * Afficher une commande spécifique
+     * Afficher les détails d'une commande
      */
     public function show(Commande $commande): JsonResponse
     {
@@ -142,14 +178,15 @@ class CommandeController extends Controller
             $commande->load([
                 'client.mesures',
                 'articles_commandes.produit.category',
-                'paiements',
-                'factures'
+                'paiements' => function($query) {
+                    $query->where('statut', 'valide');
+                }
             ]);
 
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'commande' => $this->formatCommandeResponse($commande, true)
+                    'commande' => $this->formatCommandeDetail($commande)
                 ]
             ]);
 
@@ -167,58 +204,187 @@ class CommandeController extends Controller
     }
 
     /**
+     * Mettre à jour une commande
+     */
+    public function update(CommandeRequest $request, Commande $commande): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            $updatedCommande = $this->commandeService->updateCommande($commande, $request->validated());
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Commande modifiée avec succès',
+                'data' => [
+                    'commande' => $this->formatCommandeDetail($updatedCommande)
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Erreur mise à jour commande', [
+                'commande_id' => $commande->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    /**
+     * Supprimer une commande
+     */
+    public function destroy(Commande $commande): JsonResponse
+    {
+        try {
+            $this->commandeService->deleteCommande($commande);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Commande supprimée avec succès'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur suppression commande', [
+                'commande_id' => $commande->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    /**
      * Obtenir les clients avec leurs mesures
      */
- // Dans CommandeController.php - méthode getClientsWithMesures
+    public function getClientsWithMesures(): JsonResponse
+    {
+        try {
+            $clients = Client::with('mesures')
+                ->select(
+                    'id', 
+                    'nom', 
+                    'prenom', 
+                    'telephone', 
+                    'email',
+                    'adresse_principale',
+                    'quartier',
+                    'ville',
+                    'indications_livraison'
+                )
+                ->orderBy('nom')
+                ->get()
+                ->map(function ($client) {
+                    return [
+                        'id' => $client->id,
+                        'nom_complet' => $client->nom . ' ' . $client->prenom,
+                        'telephone' => $client->telephone,
+                        'email' => $client->email,
+                        'adresse_principale' => $client->adresse_principale,
+                        'quartier' => $client->quartier,
+                        'ville' => $client->ville,
+                        'indications_livraison' => $client->indications_livraison,
+                        'a_mesures' => $client->mesures !== null,
+                        'mesures' => $client->mesures ? $client->mesures->getMesuresRemplies() : null
+                    ];
+                });
 
-public function getClientsWithMesures(): JsonResponse
-{
-    try {
-        $clients = Client::with('mesures')
-            ->select(
-                'id', 
-                'nom', 
-                'prenom', 
-                'telephone', 
-                'email',
-                'adresse_principale',  // AJOUTEZ CES CHAMPS
-                'quartier',
-                'ville',
-                'indications_livraison'
-            )
-            ->orderBy('nom')
-            ->get()
-            ->map(function ($client) {
-                return [
-                    'id' => $client->id,
-                    'nom_complet' => $client->nom . ' ' . $client->prenom,
-                    'telephone' => $client->telephone,
-                    'email' => $client->email,
-                    'adresse_principale' => $client->adresse_principale,
-                    'quartier' => $client->quartier,
-                    'ville' => $client->ville,
-                    'indications_livraison' => $client->indications_livraison,
-                    'a_mesures' => $client->mesures !== null,
-                    'mesures' => $client->mesures
-                ];
-            });
+            return response()->json([
+                'success' => true,
+                'data' => ['clients' => $clients]
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'data' => ['clients' => $clients]
-        ]);
+        } catch (\Exception $e) {
+            Log::error('Erreur récupération clients avec mesures', [
+                'error' => $e->getMessage()
+            ]);
 
-    } catch (\Exception $e) {
-        Log::error('Erreur récupération clients avec mesures', [
-            'error' => $e->getMessage()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Erreur lors de la récupération des clients'
-        ], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des clients'
+            ], 500);
+        }
     }
-}
+
+    /**
+     * Obtenir les produits actifs
+     */
+    public function getProduits(): JsonResponse
+    {
+        try {
+            $produits = Produit::with('category')
+                ->where('est_visible', true)
+                ->orderBy('nom')
+                ->get()
+                ->map(function ($produit) {
+                    return [
+                        'id' => $produit->id,
+                        'nom' => $produit->nom,
+                        'prix' => $produit->prix,
+                        'prix_promo' => $produit->prix_promo,
+                        'stock_disponible' => $produit->stock_disponible,
+                        'gestion_stock' => $produit->gestion_stock,
+                        'fait_sur_mesure' => $produit->fait_sur_mesure,
+                        'tailles_disponibles' => $produit->tailles_disponibles,
+                        'couleurs_disponibles' => $produit->couleurs_disponibles,
+                        'categorie' => $produit->category ? $produit->category->nom : null,
+                        'image' => $produit->image_principale
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => ['produits' => $produits]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur récupération produits', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des produits'
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtenir les statistiques des commandes
+     */
+    public function getStatistics(): JsonResponse
+    {
+        try {
+            $stats = $this->commandeService->getStatistics();
+
+            return response()->json([
+                'success' => true,
+                'data' => $stats
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la récupération des statistiques', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des statistiques'
+            ], 500);
+        }
+    }
+
     /**
      * Mettre à jour le statut d'une commande
      */
@@ -230,36 +396,24 @@ public function getClientsWithMesures(): JsonResponse
                 'notes_admin' => 'nullable|string|max:1000'
             ]);
 
-            DB::beginTransaction();
-
-            $ancienStatut = $commande->statut;
             $commande->update($validated);
-
-            // Mettre à jour les dates automatiquement selon le statut
-            $this->updateStatusDates($commande, $validated['statut']);
-
-            DB::commit();
 
             Log::info('Statut de commande mis à jour', [
                 'commande_id' => $commande->id,
-                'numero_commande' => $commande->numero_commande,
-                'ancien_statut' => $ancienStatut,
                 'nouveau_statut' => $validated['statut'],
                 'user_id' => auth()->id()
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Statut de la commande mis à jour avec succès',
+                'message' => 'Statut mis à jour avec succès',
                 'data' => [
-                    'commande' => $this->formatCommandeResponse($commande->fresh())
+                    'commande' => $this->formatCommandeList($commande->fresh())
                 ]
             ]);
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            
-            Log::error('Erreur lors de la mise à jour du statut', [
+            Log::error('Erreur mise à jour statut', [
                 'commande_id' => $commande->id,
                 'error' => $e->getMessage()
             ]);
@@ -271,228 +425,329 @@ public function getClientsWithMesures(): JsonResponse
         }
     }
 
-    /**
-     * Assigner une date de livraison
-     */
-    public function updateDateLivraison(Request $request, Commande $commande): JsonResponse
-    {
-        try {
-            $validated = $request->validate([
-                'date_livraison_prevue' => 'required|date|after:now',
-                'notes_admin' => 'nullable|string|max:1000'
-            ]);
-
-            $commande->update($validated);
-
-            Log::info('Date de livraison mise à jour', [
-                'commande_id' => $commande->id,
-                'numero_commande' => $commande->numero_commande,
-                'nouvelle_date' => $validated['date_livraison_prevue'],
-                'user_id' => auth()->id()
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Date de livraison mise à jour avec succès',
-                'data' => [
-                    'commande' => $this->formatCommandeResponse($commande->fresh())
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la mise à jour de la date de livraison', [
-                'commande_id' => $commande->id,
-                'error' => $e->getMessage()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la mise à jour de la date de livraison'
-            ], 500);
-        }
-    }
-
-    /**
-     * Annuler une commande
-     */
-    public function cancel(Request $request, Commande $commande): JsonResponse
-    {
-        try {
-            if (in_array($commande->statut, ['livree', 'annulee'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cette commande ne peut pas être annulée'
-                ], 400);
-            }
-
-            $validated = $request->validate([
-                'raison_annulation' => 'required|string|max:500'
-            ]);
-
-            DB::beginTransaction();
-
-            $commande->update([
-                'statut' => 'annulee',
-                'notes_admin' => ($commande->notes_admin ? $commande->notes_admin . "\n\n" : '') . 
-                               "ANNULATION: " . $validated['raison_annulation']
-            ]);
-
-            // Remettre en stock les produits si nécessaire
-            $this->restoreStock($commande);
-
-            DB::commit();
-
-            Log::info('Commande annulée', [
-                'commande_id' => $commande->id,
-                'numero_commande' => $commande->numero_commande,
-                'raison' => $validated['raison_annulation'],
-                'user_id' => auth()->id()
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Commande annulée avec succès'
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            
-            Log::error('Erreur lors de l\'annulation de la commande', [
-                'commande_id' => $commande->id,
-                'error' => $e->getMessage()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de l\'annulation de la commande'
-            ], 500);
-        }
-    }
-
-    /**
-     * Obtenir les statistiques des commandes
-     */
-    public function stats(): JsonResponse
-    {
-        try {
-            $stats = [
-                'total_commandes' => Commande::count(),
-                'commandes_en_attente' => Commande::where('statut', 'en_attente')->count(),
-                'commandes_confirmees' => Commande::where('statut', 'confirmee')->count(),
-                'commandes_en_preparation' => Commande::where('statut', 'en_preparation')->count(),
-                'commandes_pretes' => Commande::where('statut', 'prete')->count(),
-                'commandes_en_livraison' => Commande::where('statut', 'en_livraison')->count(),
-                'commandes_livrees' => Commande::where('statut', 'livree')->count(),
-                'commandes_annulees' => Commande::where('statut', 'annulee')->count(),
-                'chiffre_affaires_mois' => Commande::where('statut', 'livree')
-                    ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
-                    ->sum('montant_total'),
-                'commandes_en_retard' => Commande::where('date_livraison_prevue', '<', now())
-                    ->whereNotIn('statut', ['livree', 'annulee'])
-                    ->count()
-            ];
-
-            return response()->json([
-                'success' => true,
-                'data' => $stats
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la récupération des statistiques', [
-                'error' => $e->getMessage()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la récupération des statistiques'
-            ], 500);
-        }
-    }
-
     // ========== MÉTHODES PRIVÉES ==========
 
     /**
-     * Formater la réponse d'une commande
+     * Formater une commande pour la liste
      */
-    private function formatCommandeResponse(Commande $commande, bool $detailed = false): array
+    private function formatCommandeList(Commande $commande): array
+{
+    $formatted = [
+        'id' => $commande->id,
+        'numero_commande' => $commande->numero_commande,
+        'client' => $commande->client ? [
+            'id' => $commande->client->id,
+            'nom_complet' => $commande->client->nom . ' ' . $commande->client->prenom,
+            'telephone' => $commande->client->telephone
+        ] : null,
+        'nom_destinataire' => $commande->nom_destinataire,
+        'telephone_livraison' => $commande->telephone_livraison,
+        'montant_total' => $commande->montant_total,
+        'statut' => $commande->statut,
+        'statut_label' => $this->getStatutLabel($commande->statut),
+        'priorite' => $commande->priorite,
+        'date_commande' => $commande->created_at->format('d/m/Y H:i'),
+        'date_livraison_prevue' => $commande->date_livraison_prevue?->format('d/m/Y'),
+        'nb_articles' => $commande->articles_commandes->sum('quantite'),
+        'est_payee' => $this->isCommandePaid($commande),
+        'peut_modifier' => !$this->isCommandePaid($commande),
+        'peut_supprimer' => !$this->isCommandePaid($commande),
+        'est_en_retard' => $commande->date_livraison_prevue && 
+                           $commande->date_livraison_prevue < now() && 
+                           !in_array($commande->statut, ['livree', 'annulee'])
+    ];
+    
+    Log::info('Commande formatée:', $formatted);
+    return $formatted;
+}
+
+    /**
+     * Formater une commande pour les détails complets
+     */
+    private function formatCommandeDetail(Commande $commande): array
     {
-        $data = [
-            'id' => $commande->id,
-            'numero_commande' => $commande->numero_commande,
-            'client' => $commande->client ? [
-                'id' => $commande->client->id,
-                'nom' => $commande->client->nom,
-                'email' => $commande->client->email,
-                'telephone' => $commande->client->telephone
-            ] : null,
-            'nom_destinataire' => $commande->nom_destinataire,
-            'telephone_livraison' => $commande->telephone_livraison,
+        $data = $this->formatCommandeList($commande);
+        
+        $data = array_merge($data, [
             'adresse_livraison' => $commande->adresse_livraison,
+            'instructions_livraison' => $commande->instructions_livraison,
+            'mode_livraison' => $commande->mode_livraison,
+            'notes_client' => $commande->notes_client,
+            'notes_admin' => $commande->notes_admin,
+            'est_cadeau' => $commande->est_cadeau,
+            'message_cadeau' => $commande->message_cadeau,
+            'code_promo' => $commande->code_promo,
             'sous_total' => $commande->sous_total,
             'frais_livraison' => $commande->frais_livraison,
             'remise' => $commande->remise,
-            'montant_total' => $commande->montant_total,
-            'statut' => $commande->statut,
-            'statut_label' => $this->getStatutLabel($commande->statut),
-            'priorite' => $commande->priorite,
-            'est_cadeau' => $commande->est_cadeau,
-            'mode_livraison' => $commande->mode_livraison,
             'source' => $commande->source,
-            'date_commande' => $commande->created_at->format('d/m/Y H:i'),
-            'date_livraison_prevue' => $commande->date_livraison_prevue?->format('d/m/Y H:i'),
-            'date_livraison_reelle' => $commande->date_livraison_reelle?->format('d/m/Y H:i'),
-            'nb_articles' => $commande->articles_commandes->sum('quantite'),
-            'est_en_retard' => $commande->date_livraison_prevue && 
-                               $commande->date_livraison_prevue < now() && 
-                               !in_array($commande->statut, ['livree', 'annulee'])
-        ];
+            
+            // Informations client détaillées avec mesures
+            'client_details' => $commande->client ? [
+                'id' => $commande->client->id,
+                'nom_complet' => $commande->client->nom . ' ' . $commande->client->prenom,
+                'telephone' => $commande->client->telephone,
+                'email' => $commande->client->email,
+                'adresse_principale' => $commande->client->adresse_principale,
+                'ville' => $commande->client->ville,
+                'a_mesures' => $commande->client->mesures !== null,
+                'mesures_client' => $commande->client->mesures ? [
+                    'date_prise' => $commande->client->mesures->date_prise_mesures?->format('d/m/Y'),
+                    'mesures_valides' => $commande->client->mesures->mesures_valides,
+                    'mesures' => $commande->client->mesures->getMesuresRemplies(),
+                    'notes_mesures' => $commande->client->mesures->notes_mesures
+                ] : null
+            ] : null,
+            
+            // Articles détaillés avec mesures spécifiques
+            'articles' => $commande->articles_commandes->map(function ($article) {
+                $articleData = [
+                    'id' => $article->id,
+                    'produit' => [
+                        'id' => $article->produit->id,
+                        'nom' => $article->produit->nom,
+                        'image' => $article->produit->image_principale,
+                        'categorie' => $article->produit->category->nom ?? null,
+                        'fait_sur_mesure' => $article->produit->fait_sur_mesure
+                    ],
+                    'quantite' => $article->quantite,
+                    'prix_unitaire' => $article->prix_unitaire,
+                    'prix_total' => $article->prix_total_article,
+                    'taille_choisie' => $article->taille_choisie,
+                    'couleur_choisie' => $article->couleur_choisie,
+                    'demandes_personnalisation' => $article->demandes_personnalisation,
+                    'statut_production' => $article->statut_production,
+                    'statut_production_label' => $this->getStatutProductionLabel($article->statut_production),
+                    
+                    // Gestion détaillée des mesures
+                    'type_confection' => $this->getTypeConfection($article),
+                    'mesures_utilisees' => null,
+                    'utilise_mesures_client' => false,
+                    'mesures_personnalisees' => false
+                ];
 
-        if ($detailed) {
-            $data = array_merge($data, [
-                'instructions_livraison' => $commande->instructions_livraison,
-                'notes_client' => $commande->notes_client,
-                'notes_admin' => $commande->notes_admin,
-                'notes_production' => $commande->notes_production,
-                'message_cadeau' => $commande->message_cadeau,
-                'code_promo' => $commande->code_promo,
-                'note_satisfaction' => $commande->note_satisfaction,
-                'commentaire_satisfaction' => $commande->commentaire_satisfaction,
-                'articles' => $commande->articles_commandes->map(function ($article) {
-                    $articleData = [
-                        'id' => $article->id,
-                        'produit' => [
-                            'id' => $article->produit->id,
-                            'nom' => $article->produit->nom,
-                            'image' => $article->produit->image_principale,
-                            'categorie' => $article->produit->category->nom ?? null
-                        ],
-                        'quantite' => $article->quantite,
-                        'prix_unitaire' => $article->prix_unitaire,
-                        'prix_total' => $article->prix_total_article,
-                        'personnalisations' => $article->personnalisations,
-                        'utilise_mesures_client' => $article->utilise_mesures_client ?? false,
-                    ];
-
-                    // Ajouter les mesures si présentes
-                    if ($article->mesures_client) {
-                        $articleData['mesures'] = json_decode($article->mesures_client, true);
+                // Déterminer le type de mesures utilisées
+                if ($article->taille_choisie) {
+                    $articleData['type_confection'] = 'taille_standard';
+                } elseif ($article->mesures_client) {
+                    $mesures = json_decode($article->mesures_client, true);
+                    if (!empty($mesures)) {
+                        $articleData['type_confection'] = 'mesures_specifiques';
+                        $articleData['mesures_utilisees'] = $mesures;
+                        
+                        // Vérifier si ce sont les mesures du client ou des mesures personnalisées
+                        $mesuresClient = $article->commande->client->mesures ? 
+                            $article->commande->client->mesures->getMesuresRemplies() : [];
+                        
+                        if (!empty($mesuresClient) && $this->compareMesures($mesures, $mesuresClient)) {
+                            $articleData['utilise_mesures_client'] = true;
+                            $articleData['source_mesures'] = 'Mesures du client';
+                        } else {
+                            $articleData['mesures_personnalisees'] = true;
+                            $articleData['source_mesures'] = 'Mesures personnalisées pour cet article';
+                        }
+                        
+                        // Formater les mesures pour l'affichage
+                        $articleData['mesures_formatted'] = $this->formatMesuresForDisplay($mesures);
                     }
+                }
 
-                    return $articleData;
-                }),
-                'paiements' => $commande->paiements->map(function ($paiement) {
-                    return [
-                        'id' => $paiement->id,
-                        'montant' => $paiement->montant,
-                        'methode' => $paiement->methode_paiement,
-                        'statut' => $paiement->statut,
-                        'date' => $paiement->created_at->format('d/m/Y H:i')
-                    ];
-                })
-            ]);
-        }
+                return $articleData;
+            }),
+
+            // Paiements
+            'paiements' => $commande->paiements->map(function ($paiement) {
+                return [
+                    'id' => $paiement->id,
+                    'montant' => $paiement->montant,
+                    'methode' => $paiement->methode_paiement,
+                    'statut' => $paiement->statut,
+                    'date' => $paiement->created_at->format('d/m/Y H:i'),
+                    'reference' => $paiement->reference_paiement
+                ];
+            }),
+
+            'montant_paye' => $commande->paiements->where('statut', 'valide')->sum('montant'),
+            'montant_restant' => max(0, $commande->montant_total - $commande->paiements->where('statut', 'valide')->sum('montant')),
+            
+            // Informations de production
+            'production_info' => [
+                'articles_avec_mesures' => $commande->articles_commandes->filter(function($article) {
+                    return !empty($article->mesures_client);
+                })->count(),
+                'articles_taille_standard' => $commande->articles_commandes->filter(function($article) {
+                    return !empty($article->taille_choisie);
+                })->count(),
+                'delai_production_estime' => $this->calculateDelaiProduction($commande),
+                'difficulte_globale' => $this->calculateDifficulteGlobale($commande)
+            ]
+        ]);
 
         return $data;
+    }
+
+    /**
+     * Obtenir le type de confection pour un article
+     */
+    private function getTypeConfection($article): string
+    {
+        if ($article->taille_choisie) {
+            return 'taille_standard';
+        } elseif ($article->mesures_client) {
+            return 'mesures_specifiques';
+        }
+        return 'non_defini';
+    }
+
+    /**
+     * Comparer deux ensembles de mesures pour voir s'ils sont identiques
+     */
+    private function compareMesures(array $mesures1, array $mesures2): bool
+    {
+        // Comparer les mesures principales
+        $mesuresPrincipales = ['epaule', 'poitrine', 'taille', 'longueur_robe', 'tour_bras'];
+        
+        $correspondances = 0;
+        $total = 0;
+        
+        foreach ($mesuresPrincipales as $mesure) {
+            if (isset($mesures1[$mesure]) && isset($mesures2[$mesure])) {
+                $total++;
+                if (abs($mesures1[$mesure] - $mesures2[$mesure]) < 1) { // Tolérance de 1cm
+                    $correspondances++;
+                }
+            }
+        }
+        
+        return $total > 0 && ($correspondances / $total) >= 0.8; // 80% de correspondance
+    }
+
+    /**
+     * Formater les mesures pour l'affichage
+     */
+    private function formatMesuresForDisplay(array $mesures): array
+    {
+        $mesuresFormatted = [];
+        
+        $labelsMesures = [
+            'epaule' => 'Épaule',
+            'poitrine' => 'Poitrine',
+            'taille' => 'Taille',
+            'longueur_robe' => 'Longueur robe',
+            'tour_bras' => 'Tour de bras',
+            'tour_cuisses' => 'Tour de cuisses',
+            'longueur_jupe' => 'Longueur jupe',
+            'ceinture' => 'Ceinture',
+            'tour_fesses' => 'Tour de fesses',
+            'buste' => 'Buste',
+            'longueur_manches_longues' => 'Manches longues',
+            'longueur_manches_courtes' => 'Manches courtes',
+            'longueur_short' => 'Longueur short',
+            'cou' => 'Tour de cou',
+            'longueur_taille_basse' => 'Taille basse'
+        ];
+        
+        foreach ($mesures as $key => $value) {
+            if ($value && isset($labelsMesures[$key])) {
+                $mesuresFormatted[] = [
+                    'label' => $labelsMesures[$key],
+                    'valeur' => $value,
+                    'unite' => 'cm',
+                    'affichage' => $labelsMesures[$key] . ': ' . $value . 'cm'
+                ];
+            }
+        }
+        
+        return $mesuresFormatted;
+    }
+
+    /**
+     * Obtenir le libellé du statut de production
+     */
+    private function getStatutProductionLabel(string $statut): string
+    {
+        $labels = [
+            'en_attente' => 'En attente',
+            'en_cours' => 'En cours de production',
+            'pause' => 'En pause',
+            'termine' => 'Terminé',
+            'controle_qualite' => 'Contrôle qualité',
+            'retouches' => 'Retouches nécessaires',
+            'pret' => 'Prêt'
+        ];
+
+        return $labels[$statut] ?? ucfirst(str_replace('_', ' ', $statut));
+    }
+
+    /**
+     * Calculer le délai de production estimé
+     */
+    private function calculateDelaiProduction(Commande $commande): int
+    {
+        $delaiTotal = 0;
+        
+        foreach ($commande->articles_commandes as $article) {
+            $delaiArticle = 1; // Délai de base : 1 jour
+            
+            // Ajouter du temps si mesures spécifiques
+            if ($article->mesures_client) {
+                $delaiArticle += 2; // +2 jours pour mesures
+            }
+            
+            // Ajouter du temps selon le produit
+            if ($article->produit->delai_production_jours) {
+                $delaiArticle = max($delaiArticle, $article->produit->delai_production_jours);
+            }
+            
+            // Multiplier par la quantité (avec dégressivité)
+            if ($article->quantite > 1) {
+                $delaiArticle += ceil(($article->quantite - 1) * 0.5);
+            }
+            
+            $delaiTotal = max($delaiTotal, $delaiArticle); // Prendre le plus long (production en parallèle)
+        }
+        
+        return $delaiTotal;
+    }
+
+    /**
+     * Calculer la difficulté globale de la commande
+     */
+    private function calculateDifficulteGlobale(Commande $commande): string
+    {
+        $scoreTotal = 0;
+        $nombreArticles = $commande->articles_commandes->count();
+        
+        foreach ($commande->articles_commandes as $article) {
+            $scoreArticle = 1; // Score de base
+            
+            // +2 si mesures spécifiques
+            if ($article->mesures_client) {
+                $scoreArticle += 2;
+            }
+            
+            // +1 si personnalisations
+            if ($article->demandes_personnalisation) {
+                $scoreArticle += 1;
+            }
+            
+            // +1 si quantité élevée
+            if ($article->quantite > 3) {
+                $scoreArticle += 1;
+            }
+            
+            $scoreTotal += $scoreArticle;
+        }
+        
+        $scoreMoyen = $scoreTotal / $nombreArticles;
+        
+        if ($scoreMoyen <= 2) {
+            return 'facile';
+        } elseif ($scoreMoyen <= 3.5) {
+            return 'moyen';
+        } else {
+            return 'difficile';
+        }
     }
 
     /**
@@ -514,141 +769,423 @@ public function getClientsWithMesures(): JsonResponse
     }
 
     /**
-     * Mettre à jour les dates selon le statut
+     * Vérifier si une commande est payée
      */
-    private function updateStatusDates(Commande $commande, string $nouveauStatut): void
+    private function isCommandePaid(Commande $commande): bool
     {
-        $updates = [];
-
-        switch ($nouveauStatut) {
-            case 'confirmee':
-                if (!$commande->date_confirmation) {
-                    $updates['date_confirmation'] = now();
-                }
-                break;
-            case 'en_preparation':
-                if (!$commande->date_debut_production) {
-                    $updates['date_debut_production'] = now();
-                }
-                break;
-            case 'prete':
-                if (!$commande->date_fin_production) {
-                    $updates['date_fin_production'] = now();
-                }
-                break;
-            case 'livree':
-                if (!$commande->date_livraison_reelle) {
-                    $updates['date_livraison_reelle'] = now();
-                }
-                break;
-        }
-
-        if (!empty($updates)) {
-            $commande->update($updates);
-        }
+        return $commande->paiements()
+            ->where('statut', 'valide')
+            ->sum('montant') >= $commande->montant_total;
     }
 
     /**
-     * Remettre en stock les produits d'une commande annulée
+     * Obtenir les commandes en retard
      */
-    private function restoreStock(Commande $commande): void
+    public function getCommandesEnRetard(): JsonResponse
     {
-        foreach ($commande->articles_commandes as $article) {
-            if ($article->produit->gestion_stock) {
-                $article->produit->increment('stock_disponible', $article->quantite);
-            }
-        }
-    }
-    /**
- * Mettre à jour une commande
- */
-public function update(CommandeRequest $request, Commande $commande): JsonResponse
-{
-    try {
-        DB::beginTransaction();
+        try {
+            $commandesEnRetard = Commande::with(['client', 'articles_commandes.produit'])
+                ->where('date_livraison_prevue', '<', now())
+                ->whereNotIn('statut', ['livree', 'annulee'])
+                ->orderBy('date_livraison_prevue')
+                ->get()
+                ->map(function ($commande) {
+                    return $this->formatCommandeList($commande);
+                });
 
-        $updatedCommande = $this->commandeService->updateCommande($commande, $request->validated());
+            return response()->json([
+                'success' => true,
+                'data' => ['commandes' => $commandesEnRetard]
+            ]);
 
-        DB::commit();
+        } catch (\Exception $e) {
+            Log::error('Erreur récupération commandes en retard', [
+                'error' => $e->getMessage()
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Commande mise à jour avec succès',
-            'data' => [
-                'commande' => $this->formatCommandeResponse($updatedCommande, true)
-            ]
-        ]);
-    } catch (\Exception $e) {
-        DB::rollBack();
-        
-        Log::error('Erreur mise à jour commande', [
-            'commande_id' => $commande->id,
-            'error' => $e->getMessage()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Erreur lors de la mise à jour'
-        ], 500);
-    }
-}
-
-/**
- * Supprimer une commande
- */
-public function destroy(Commande $commande): JsonResponse
-{
-    try {
-
-         if ($commande->paiements()->exists()) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Impossible de supprimer une commande avec des paiements associés'
-        ], 400);
-    }
-        // Vérifier si on peut supprimer
-        if (in_array($commande->statut, ['en_livraison', 'livree'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'Impossible de supprimer une commande en livraison ou livrée'
+                'message' => 'Erreur lors de la récupération des commandes en retard'
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtenir les commandes urgentes
+     */
+    public function getCommandesUrgentes(): JsonResponse
+    {
+        try {
+            $commandesUrgentes = Commande::with(['client', 'articles_commandes.produit'])
+                ->whereIn('priorite', ['urgente', 'tres_urgente'])
+                ->whereNotIn('statut', ['livree', 'annulee'])
+                ->orderBy('priorite', 'desc')
+                ->orderBy('created_at')
+                ->get()
+                ->map(function ($commande) {
+                    return $this->formatCommandeList($commande);
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => ['commandes' => $commandesUrgentes]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur récupération commandes urgentes', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des commandes urgentes'
+            ], 500);
+        }
+    }
+
+    /**
+     * Dupliquer une commande
+     */
+    public function duplicate(Commande $commande): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            // Préparer les données pour la nouvelle commande
+            $commandeData = [
+                'client_id' => $commande->client_id,
+                'nom_destinataire' => $commande->nom_destinataire,
+                'telephone_livraison' => $commande->telephone_livraison,
+                'adresse_livraison' => $commande->adresse_livraison,
+                'instructions_livraison' => $commande->instructions_livraison,
+                'mode_livraison' => $commande->mode_livraison,
+                'notes_client' => $commande->notes_client,
+                'priorite' => $commande->priorite,
+                'est_cadeau' => $commande->est_cadeau,
+                'message_cadeau' => $commande->message_cadeau,
+                'frais_livraison' => $commande->frais_livraison,
+                'remise' => $commande->remise,
+                'articles' => []
+            ];
+
+            // Préparer les articles
+            foreach ($commande->articles_commandes as $article) {
+                $articleData = [
+                    'produit_id' => $article->produit_id,
+                    'quantite' => $article->quantite,
+                    'prix_unitaire' => $article->prix_unitaire,
+                    'taille' => $article->taille_choisie,
+                    'couleur' => $article->couleur_choisie,
+                    'instructions' => $article->demandes_personnalisation
+                ];
+
+                // Ajouter les mesures si présentes
+                if ($article->mesures_client) {
+                    $articleData['mesures'] = json_decode($article->mesures_client, true);
+                }
+
+                $commandeData['articles'][] = $articleData;
+            }
+
+            // Créer la nouvelle commande
+            $nouvelleCommande = $this->commandeService->createCommande($commandeData);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Commande dupliquée avec succès',
+                'data' => [
+                    'commande' => $this->formatCommandeDetail($nouvelleCommande)
+                ]
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Erreur duplication commande', [
+                'commande_id' => $commande->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la duplication de la commande'
+            ], 500);
+        }
+    }
+
+    /**
+     * Recherche rapide de commandes
+     */
+    public function quickSearch(Request $request): JsonResponse
+    {
+        try {
+            $search = $request->get('q', '');
+            
+            if (strlen($search) < 2) {
+                return response()->json([
+                    'success' => true,
+                    'data' => ['commandes' => []]
+                ]);
+            }
+
+            $commandes = Commande::with(['client', 'articles_commandes.produit'])
+                ->where(function($query) use ($search) {
+                    $query->where('numero_commande', 'ILIKE', "%{$search}%")
+                          ->orWhere('nom_destinataire', 'ILIKE', "%{$search}%")
+                          ->orWhere('telephone_livraison', 'ILIKE', "%{$search}%")
+                          ->orWhereHas('client', function($clientQuery) use ($search) {
+                              $clientQuery->where('nom', 'ILIKE', "%{$search}%")
+                                        ->orWhere('prenom', 'ILIKE', "%{$search}%")
+                                        ->orWhere('telephone', 'ILIKE', "%{$search}%");
+                          });
+                })
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get()
+                ->map(function ($commande) {
+                    return [
+                        'id' => $commande->id,
+                        'numero_commande' => $commande->numero_commande,
+                        'client_nom' => $commande->client ? $commande->client->nom . ' ' . $commande->client->prenom : $commande->nom_destinataire,
+                        'montant_total' => $commande->montant_total,
+                        'statut' => $commande->statut,
+                        'statut_label' => $this->getStatutLabel($commande->statut),
+                        'date_commande' => $commande->created_at->format('d/m/Y')
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => ['commandes' => $commandes]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur recherche rapide commandes', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la recherche'
+            ], 500);
+        }
+    }
+
+    /**
+     * Exporter les commandes en CSV
+     */
+    public function export(Request $request): JsonResponse
+    {
+        try {
+            // Construire les filtres
+            $filters = [
+                'numero_commande' => $request->get('numero_commande'),
+                'client_search' => $request->get('client_search'),
+                'produit_search' => $request->get('produit_search'),
+                'statut' => $request->get('statut'),
+                'date_debut' => $request->get('date_debut'),
+                'date_fin' => $request->get('date_fin'),
+                'priorite' => $request->get('priorite'),
+            ];
+
+            // Récupérer toutes les commandes correspondant aux filtres
+            $commandes = $this->commandeService->searchCommandes($filters)->get();
+
+            // Préparer les données pour l'export
+            $exportData = $commandes->map(function ($commande) {
+                return [
+                    'Numéro' => $commande->numero_commande,
+                    'Date' => $commande->created_at->format('d/m/Y H:i'),
+                    'Client' => $commande->client ? $commande->client->nom . ' ' . $commande->client->prenom : $commande->nom_destinataire,
+                    'Téléphone' => $commande->telephone_livraison,
+                    'Montant Total' => $commande->montant_total,
+                    'Statut' => $this->getStatutLabel($commande->statut),
+                    'Priorité' => ucfirst($commande->priorite),
+                    'Articles' => $commande->articles_commandes->sum('quantite'),
+                    'Date Livraison' => $commande->date_livraison_prevue?->format('d/m/Y'),
+                    'Adresse' => $commande->adresse_livraison
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'commandes' => $exportData,
+                    'total' => $exportData->count()
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur export commandes', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'export'
+            ], 500);
+        }
+    }
+
+    // Dans CommandeController.php, ajouter cette méthode :
+
+/**
+ * Marquer une commande comme payée
+ */
+public function markAsPaid(Request $request, Commande $commande): JsonResponse
+{
+    try {
+        $validated = $request->validate([
+            'montant' => 'required|numeric|min:0',
+            'methode_paiement' => 'required|string|in:especes,wave,orange_money,free_money,virement,cheque,carte',
+            'reference_paiement' => 'nullable|string|max:100'
+        ]);
+
+        DB::beginTransaction();
+
+        // Vérifier si la commande n'est pas déjà entièrement payée
+        $montantDejaPaye = $commande->paiements()
+            ->where('statut', 'valide')
+            ->sum('montant');
+
+        $montantRestant = $commande->montant_total - $montantDejaPaye;
+
+        if ($montantRestant <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette commande est déjà entièrement payée'
             ], 400);
         }
 
-        DB::beginTransaction();
+        // Limiter le montant au montant restant
+        $montantAPayer = min($validated['montant'], $montantRestant);
 
-        // Remettre en stock
-        foreach ($commande->articles_commandes as $article) {
-            if ($article->produit->gestion_stock) {
-                $article->produit->increment('stock_disponible', $article->quantite);
-            }
+        // Créer le paiement
+        $paiement = \App\Models\Paiement::create([
+            'commande_id' => $commande->id,
+            'client_id' => $commande->client_id,
+            'montant' => $montantAPayer,
+            'reference_paiement' => $validated['reference_paiement'] ?: 'PAY-' . now()->format('Ymd') . '-' . strtoupper(substr(md5(uniqid()), 0, 6)),
+            'methode_paiement' => $validated['methode_paiement'],
+            'statut' => 'valide',
+            'date_initiation' => now(),
+            'date_validation' => now(),
+            'est_acompte' => $montantAPayer < $montantRestant,
+            'montant_restant' => max(0, $montantRestant - $montantAPayer),
+            'notes_admin' => 'Paiement enregistré manuellement par ' . auth()->user()->name
+        ]);
+
+        // Mettre à jour le statut de la commande si entièrement payée
+        $nouveauMontantPaye = $montantDejaPaye + $montantAPayer;
+        if ($nouveauMontantPaye >= $commande->montant_total) {
+            $commande->update([
+                'statut' => $commande->statut === 'en_attente' ? 'confirmee' : $commande->statut
+            ]);
         }
-
-        $commande->delete();
 
         DB::commit();
 
-        Log::info('Commande supprimée', [
+        Log::info('Paiement enregistré manuellement', [
             'commande_id' => $commande->id,
-            'numero_commande' => $commande->numero_commande,
+            'paiement_id' => $paiement->id,
+            'montant' => $montantAPayer,
+            'methode' => $validated['methode_paiement'],
             'user_id' => auth()->id()
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Commande supprimée avec succès'
+            'message' => $montantAPayer < $montantRestant 
+                ? "Acompte de {$montantAPayer} F CFA enregistré. Reste à payer : " . ($montantRestant - $montantAPayer) . " F CFA"
+                : 'Paiement complet enregistré avec succès',
+            'data' => [
+                'paiement' => [
+                    'id' => $paiement->id,
+                    'montant' => $paiement->montant,
+                    'methode' => $paiement->methode_paiement,
+                    'reference' => $paiement->reference_paiement,
+                    'date' => $paiement->created_at->format('d/m/Y H:i')
+                ],
+                'commande' => [
+                    'montant_total' => $commande->montant_total,
+                    'montant_paye' => $nouveauMontantPaye,
+                    'montant_restant' => max(0, $commande->montant_total - $nouveauMontantPaye),
+                    'est_entierement_payee' => $nouveauMontantPaye >= $commande->montant_total
+                ]
+            ]
         ]);
+
     } catch (\Exception $e) {
         DB::rollBack();
         
-        Log::error('Erreur suppression commande', [
+        Log::error('Erreur enregistrement paiement manuel', [
             'commande_id' => $commande->id,
-            'error' => $e->getMessage()
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
         ]);
 
         return response()->json([
             'success' => false,
-            'message' => 'Erreur lors de la suppression'
+            'message' => 'Erreur lors de l\'enregistrement du paiement',
+            'error' => $e->getMessage()
         ], 500);
     }
 }
-}
+
+    /**
+     * Obtenir le résumé du jour
+     */
+    public function getDailyReport(): JsonResponse
+    {
+        try {
+            $today = now()->startOfDay();
+            $tomorrow = now()->addDay()->startOfDay();
+
+            $report = [
+                'commandes_aujourd_hui' => Commande::whereBetween('created_at', [$today, $tomorrow])->count(),
+                'ca_aujourd_hui' => Commande::whereBetween('created_at', [$today, $tomorrow])
+                    ->whereIn('statut', ['livree', 'prete'])
+                    ->sum('montant_total'),
+                'commandes_a_traiter' => Commande::whereIn('statut', ['en_attente', 'confirmee'])->count(),
+                'commandes_a_livrer' => Commande::where('date_livraison_prevue', '>=', $today)
+                    ->where('date_livraison_prevue', '<', $tomorrow)
+                    ->whereIn('statut', ['prete', 'en_livraison'])
+                    ->count(),
+                'commandes_en_retard' => Commande::where('date_livraison_prevue', '<', $today)
+                    ->whereNotIn('statut', ['livree', 'annulee'])
+                    ->count(),
+                'nouvelles_commandes' => Commande::whereBetween('created_at', [$today, $tomorrow])
+                    ->with(['client'])
+                    ->orderBy('created_at', 'desc')
+                    ->limit(5)
+                    ->get()
+                    ->map(function ($commande) {
+                        return [
+                            'id' => $commande->id,
+                            'numero_commande' => $commande->numero_commande,
+                            'client' => $commande->client ? $commande->client->nom . ' ' . $commande->client->prenom : $commande->nom_destinataire,
+                            'montant_total' => $commande->montant_total,
+                            'heure' => $commande->created_at->format('H:i')
+                        ];
+                    })
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $report
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur rapport quotidien', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la génération du rapport'
+            ], 500);
+        }
+    }
+ }
