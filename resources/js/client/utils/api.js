@@ -1,68 +1,149 @@
-// resources/js/client/utils/api.js
+// resources/js/client/utils/api.js - VERSION OPTIMISÉE
 
+// =================== SYSTÈME DE CACHE ===================
+class CacheManager {
+  constructor() {
+    this.cache = new Map();
+    this.durations = {
+      config: 30 * 60 * 1000,      // 30 min
+      categories: 10 * 60 * 1000,  // 10 min
+      product: 5 * 60 * 1000,      // 5 min
+      home: 5 * 60 * 1000,         // 5 min
+      search: 2 * 60 * 1000,       // 2 min
+      default: 3 * 60 * 1000       // 3 min
+    };
+  }
+
+  key(type, params = '') {
+    return `${type}_${params}`;
+  }
+
+  get(type, params = '') {
+    const item = this.cache.get(this.key(type, params));
+    if (!item) return null;
+    
+    const duration = this.durations[type] || this.durations.default;
+    if (Date.now() - item.timestamp > duration) {
+      this.cache.delete(this.key(type, params));
+      return null;
+    }
+    
+    return item.data;
+  }
+
+  set(type, data, params = '') {
+    this.cache.set(this.key(type, params), {
+      data,
+      timestamp: Date.now()
+    });
+  }
+
+  invalidate(type, params = '') {
+    if (params) {
+      this.cache.delete(this.key(type, params));
+    } else {
+      for (const key of this.cache.keys()) {
+        if (key.startsWith(`${type}_`)) {
+          this.cache.delete(key);
+        }
+      }
+    }
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
+const cache = new CacheManager();
+
+// =================== HELPERS ===================
 const getCsrfToken = () => {
   return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 };
 
+// =================== API SERVICE ===================
 class ApiService {
   constructor(baseURL = '/api/client') {
     this.baseURL = baseURL;
+    this.pendingRequests = new Map(); // Éviter requêtes en double
   }
 
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
-    const csrfToken = getCsrfToken();
+    const method = options.method || 'GET';
+    const requestKey = `${method}_${url}_${JSON.stringify(options.body || '')}`;
+
+    // Si requête identique en cours, retourner la même promesse
+    if (this.pendingRequests.has(requestKey)) {
+      return this.pendingRequests.get(requestKey);
+    }
 
     const config = {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
+        'X-CSRF-TOKEN': getCsrfToken(),
         'Accept': 'application/json',
         ...options.headers,
       },
       credentials: 'include',
     };
 
-    try {
-      const response = await fetch(url, config);
-      const data = await response.json();
+    const requestPromise = fetch(url, config)
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || 'Erreur API');
+        }
+        return data;
+      })
+      .catch((error) => {
+        console.error('API Error:', error);
+        throw error;
+      })
+      .finally(() => {
+        this.pendingRequests.delete(requestKey);
+      });
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Erreur API');
-      }
+    this.pendingRequests.set(requestKey, requestPromise);
+    return requestPromise;
+  }
 
-      return data;
-    } catch (error) {
-      console.error('API Error:', error);
-      throw error;
-    }
+  // Méthode avec cache
+  async cachedRequest(cacheType, endpoint, cacheParams = '', options = {}) {
+    const cached = cache.get(cacheType, cacheParams);
+    if (cached) return cached;
+
+    const data = await this.request(endpoint, options);
+    cache.set(cacheType, data, cacheParams);
+    return data;
   }
 
   // =================== CONFIGURATION ===================
   getConfig() {
-    return this.request('/config');
+    return this.cachedRequest('config', '/config');
   }
 
   // =================== PAGE D'ACCUEIL ===================
   getHomeData() {
-    return this.request('/home');
+    return this.cachedRequest('home', '/home');
   }
 
   getFeaturedProducts() {
-    return this.request('/featured-products');
+    return this.cachedRequest('home', '/featured-products', 'featured');
   }
 
   getNewArrivals() {
-    return this.request('/new-arrivals');
+    return this.cachedRequest('home', '/new-arrivals', 'new');
   }
 
   getProductsOnSale() {
-    return this.request('/products-on-sale');
+    return this.cachedRequest('home', '/products-on-sale', 'sale');
   }
 
   getCategoriesPreview() {
-    return this.request('/categories-preview');
+    return this.cachedRequest('categories', '/categories-preview', 'preview');
   }
 
   getActivePromotions() {
@@ -70,20 +151,20 @@ class ApiService {
   }
 
   getShopStats() {
-    return this.request('/shop-stats');
+    return this.cachedRequest('home', '/shop-stats', 'stats');
   }
 
   getTestimonials() {
-    return this.request('/testimonials');
+    return this.cachedRequest('home', '/testimonials', 'testimonials');
   }
 
   // =================== NAVIGATION ===================
   getMainMenu() {
-    return this.request('/navigation/menu');
+    return this.cachedRequest('categories', '/navigation/menu', 'menu');
   }
 
   getCategoryPreview(slug) {
-    return this.request(`/navigation/categories/${slug}/preview`);
+    return this.cachedRequest('categories', `/navigation/categories/${slug}/preview`, slug);
   }
 
   // =================== PRODUITS ===================
@@ -93,68 +174,75 @@ class ApiService {
   }
 
   getTrendingProducts() {
-    return this.request('/products/trending');
+    return this.cachedRequest('product', '/products/trending', 'trending');
   }
 
   getNewArrivalProducts() {
-    return this.request('/products/new-arrivals');
+    return this.cachedRequest('product', '/products/new-arrivals', 'new-arrivals');
   }
 
   getOnSaleProducts() {
-    return this.request('/products/on-sale');
+    return this.cachedRequest('product', '/products/on-sale', 'on-sale');
   }
 
   getProductBySlug(slug) {
-    return this.request(`/products/${slug}`);
+    return this.cachedRequest('product', `/products/${slug}`, slug);
   }
 
   getProductImages(productId) {
-    return this.request(`/products/${productId}/images`);
+    return this.cachedRequest('product', `/products/${productId}/images`, `images_${productId}`);
   }
 
   getRelatedProducts(productId) {
-    return this.request(`/products/${productId}/related`);
+    return this.cachedRequest('product', `/products/${productId}/related`, `related_${productId}`);
   }
 
   incrementProductViews(productId) {
-    return this.request(`/products/${productId}/view`, {
-      method: 'POST',
-    });
+    return this.request(`/products/${productId}/view`, { method: 'POST' });
   }
 
   getProductWhatsAppData(productId) {
     return this.request(`/products/${productId}/whatsapp-data`);
   }
 
+  getProductPageData(slug) {
+  return this.cachedRequest('product', `/products/${slug}/page-data`, slug);
+}
   // =================== CATÉGORIES ===================
   getCategories() {
-    return this.request('/categories');
+    return this.cachedRequest('categories', '/categories');
   }
 
   getCategoryBySlug(slug) {
-    return this.request(`/categories/${slug}`);
+    return this.cachedRequest('categories', `/categories/${slug}`, slug);
   }
 
   getCategoryProducts(slug, filters = {}) {
-    const params = new URLSearchParams(filters).toString();
-    return this.request(`/categories/${slug}/products?${params}`);
-  }
+  const params = new URLSearchParams(filters).toString();
+  // Ne PAS utiliser cachedRequest - toujours faire une requête fraîche
+  return this.request(`/categories/${slug}/products?${params}`);
+}
 
   // =================== RECHERCHE ===================
-  search(query, filters = {}) {
+  search(query, filters = {}) {a
     const params = new URLSearchParams({ q: query, ...filters }).toString();
     return this.request(`/search?${params}`);
   }
 
   getSearchSuggestions(query) {
-    return this.request(`/search/suggestions?q=${encodeURIComponent(query)}`);
+    const normalized = query.toLowerCase().trim();
+    return this.cachedRequest('search', `/search/suggestions?q=${encodeURIComponent(query)}`, normalized);
   }
 
   quickSearch(query) {
-    return this.request(`/search/quick?q=${encodeURIComponent(query)}`);
+    if (!query || query.length < 2) {
+      return Promise.resolve({ success: true, data: { produits: [], categories: [] } });
+    }
+    const normalized = query.toLowerCase().trim();
+    return this.cachedRequest('search', `/search/quick?q=${encodeURIComponent(query)}`, normalized);
   }
 
-  // =================== PANIER ===================
+  // =================== PANIER (Pas de cache) ===================
   getCart() {
     return this.request('/cart');
   }
@@ -212,7 +300,7 @@ class ApiService {
     });
   }
 
-  // =================== FAVORIS ===================
+  // =================== FAVORIS (Pas de cache) ===================
   getWishlist() {
     return this.request('/wishlist');
   }
@@ -306,6 +394,15 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ email, ...data }),
     });
+  }
+
+  // =================== UTILITAIRES ===================
+  clearCache() {
+    cache.clear();
+  }
+
+  invalidateCache(type, params) {
+    cache.invalidate(type, params);
   }
 }
 

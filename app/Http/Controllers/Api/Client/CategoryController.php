@@ -49,40 +49,44 @@ class CategoryController extends Controller
         }
     }
 
-    public function show(string $slug): JsonResponse
-    {
-        try {
-            $category = Category::where('slug', $slug)
-                ->where('est_active', true)
-                ->withCount('produits')
-                ->first();
+   public function show(string $slug): JsonResponse
+{
+    try {
+        $category = Category::where('slug', $slug)
+            ->where('est_active', true)
+            ->first();
 
-            if (!$category) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Catégorie non trouvée'
-                ], 404);
-            }
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'id' => $category->id,
-                    'nom' => $category->nom,
-                    'slug' => $category->slug,
-                    'description' => $category->description,
-                    'image' => $category->image ? asset('storage/' . $category->image) : null,
-                    'produits_count' => $category->produits_count
-                ]
-            ]);
-
-        } catch (\Exception $e) {
+        if (!$category) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors du chargement de la catégorie'
-            ], 500);
+                'message' => 'Catégorie non trouvée'
+            ], 404);
         }
+
+        // Compter TOUS les produits visibles de cette catégorie
+        $produitsCount = \App\Models\Produit::where('est_visible', true)
+            ->where('categorie_id', $category->id)
+            ->count();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $category->id,
+                'nom' => $category->nom,
+                'slug' => $category->slug,
+                'description' => $category->description,
+                'image' => $category->image ? asset('storage/' . $category->image) : null,
+                'produits_count' => $produitsCount  // Le vrai compteur
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors du chargement de la catégorie'
+        ], 500);
     }
+}
 
     public function getProducts(string $slug, Request $request): JsonResponse
 {

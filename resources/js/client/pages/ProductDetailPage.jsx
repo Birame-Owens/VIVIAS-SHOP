@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { 
-  ChevronLeft, Heart, ShoppingCart, Star, Truck, Shield, Award, 
-  MessageCircle, Check, Sparkles, Flame, Share2, Eye, ZoomIn
+  Heart, ShoppingCart, Star, Truck, Shield, Award, 
+  MessageCircle, Check, Sparkles, Flame, Share2, Eye, ZoomIn, X
 } from 'lucide-react';
 import api from '../utils/api';
 
@@ -23,7 +23,6 @@ const ProductDetailPage = () => {
 
   const slug = window.location.pathname.split('/').pop();
 
-  // Map des couleurs avec leurs codes hexadécimaux
   const colorMap = {
     'noir': '#000000',
     'blanc': '#FFFFFF',
@@ -66,43 +65,50 @@ const ProductDetailPage = () => {
     }
   };
 
-  const loadProductData = async () => {
-    try {
-      setLoading(true);
-      const productResponse = await api.getProductBySlug(slug);
+ const loadProductData = async () => {
+  try {
+    setLoading(true);
+    
+    // UNE SEULE requête !
+    const response = await api.getProductPageData(slug);
 
-      if (productResponse.success) {
-        const productData = productResponse.data;
-        setProduct(productData);
-        
-        // Construire la galerie d'images
-        const gallery = [];
-        if (productData.image) {
-          gallery.push({ original: productData.image, thumbnail: productData.image });
-        }
-        
-        setImages(gallery);
-
-        if (productData.couleurs_disponibles?.length > 0) {
-          setSelectedColor(productData.couleurs_disponibles[0]);
-        }
-        if (productData.tailles_disponibles?.length > 0) {
-          setSelectedSize(productData.tailles_disponibles[0]);
-        }
-
-        api.incrementProductViews(productData.id);
-
-        const relatedResponse = await api.getRelatedProducts(productData.id);
-        if (relatedResponse.success) {
-          setRelatedProducts(relatedResponse.data || []);
-        }
+    if (response.success) {
+      const { product: productData, related_products } = response.data;
+      
+      setProduct(productData);
+      setRelatedProducts(related_products);
+      
+      // Images
+      const gallery = [];
+      if (productData.images && productData.images.length > 0) {
+        productData.images.forEach(img => {
+          gallery.push({ 
+            original: img.original, 
+            thumbnail: img.thumbnail || img.original
+          });
+        });
+      } else if (productData.image) {
+        gallery.push({ 
+          original: productData.image, 
+          thumbnail: productData.image 
+        });
       }
-    } catch (error) {
-      console.error('Erreur:', error);
-    } finally {
-      setLoading(false);
+      setImages(gallery);
+
+      // Pré-sélection
+      if (productData.couleurs_disponibles?.length > 0) {
+        setSelectedColor(productData.couleurs_disponibles[0]);
+      }
+      if (productData.tailles_disponibles?.length > 0) {
+        setSelectedSize(productData.tailles_disponibles[0]);
+      }
     }
-  };
+  } catch (error) {
+    console.error('Erreur:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleNavigation = (type, slug = null, params = {}) => {
     const routes = {
@@ -163,6 +169,25 @@ const ProductDetailPage = () => {
     }
   };
 
+  const handleShare = async () => {
+    const shareData = {
+      title: product.nom,
+      text: `Découvrez ${product.nom} sur VIVIAS SHOP`,
+      url: window.location.href
+    };
+    
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        alert('✅ Lien copié dans le presse-papier !');
+      }
+    } catch (err) {
+      console.log('Erreur de partage:', err);
+    }
+  };
+
   const getColorStyle = (colorName) => {
     const color = colorName.toLowerCase().trim();
     return colorMap[color] || colorName;
@@ -211,7 +236,6 @@ const ProductDetailPage = () => {
 
       <div className="pt-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm mb-6">
             <button onClick={() => handleNavigation('home')} className="text-gray-500 hover:text-purple-600">Accueil</button>
             <span className="text-gray-400">/</span>
@@ -227,9 +251,7 @@ const ProductDetailPage = () => {
           </div>
 
           <div className="grid lg:grid-cols-2 gap-8 bg-white rounded-3xl shadow-2xl overflow-hidden">
-            {/* Galerie d'images */}
             <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-              {/* Badges flottants */}
               <div className="absolute top-6 left-6 z-20 flex flex-col gap-2">
                 {product.prix_promo && (
                   <div className="bg-red-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse flex items-center gap-1">
@@ -251,7 +273,6 @@ const ProductDetailPage = () => {
                 )}
               </div>
 
-              {/* Actions rapides */}
               <div className="absolute top-6 right-6 z-20 flex flex-col gap-2">
                 <button
                   onClick={handleAddToWishlist}
@@ -261,7 +282,10 @@ const ProductDetailPage = () => {
                 >
                   <Heart className={`h-6 w-6 ${isInWishlist ? 'fill-current' : ''}`} />
                 </button>
-                <button className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-purple-50 transition-all transform hover:scale-110">
+                <button 
+                  onClick={handleShare}
+                  className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-purple-50 transition-all transform hover:scale-110"
+                >
                   <Share2 className="h-6 w-6 text-gray-700" />
                 </button>
                 <button 
@@ -272,12 +296,15 @@ const ProductDetailPage = () => {
                 </button>
               </div>
 
-              {/* Image principale */}
               <div className="aspect-square rounded-2xl overflow-hidden mb-4 shadow-xl relative group">
                 <img
-                  src={images[currentImageIndex]?.original || product.image || '/images/placeholder.jpg'}
+                  src={images[currentImageIndex]?.original || product.image || '/images/placeholder-product.jpg'}
                   alt={product.nom}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/images/placeholder-product.jpg';
+                  }}
                 />
                 {product.stock_disponible < 5 && product.stock_disponible > 0 && (
                   <div className="absolute bottom-4 left-4 bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-bold">
@@ -286,7 +313,6 @@ const ProductDetailPage = () => {
                 )}
               </div>
 
-              {/* Miniatures */}
               {images.length > 1 && (
                 <div className="grid grid-cols-4 gap-3">
                   {images.map((image, idx) => (
@@ -303,6 +329,10 @@ const ProductDetailPage = () => {
                         src={image.thumbnail || image.original}
                         alt={`${product.nom} ${idx + 1}`}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = image.original || '/images/placeholder-product.jpg';
+                        }}
                       />
                     </button>
                   ))}
@@ -310,9 +340,7 @@ const ProductDetailPage = () => {
               )}
             </div>
 
-            {/* Informations produit */}
             <div className="p-8 flex flex-col">
-              {/* En-tête */}
               <div className="mb-6">
                 {product.category && (
                   <button
@@ -330,7 +358,6 @@ const ProductDetailPage = () => {
                 )}
               </div>
 
-              {/* Avis */}
               {product.note_moyenne > 0 && (
                 <div className="flex items-center gap-4 mb-6 pb-6 border-b">
                   <div className="flex items-center gap-1">
@@ -352,7 +379,6 @@ const ProductDetailPage = () => {
                 </div>
               )}
 
-              {/* Prix */}
               <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl">
                 <div className="flex items-baseline gap-4 flex-wrap mb-2">
                   <span className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
@@ -372,7 +398,6 @@ const ProductDetailPage = () => {
                 )}
               </div>
 
-              {/* Sélecteur de couleurs */}
               {product.couleurs_disponibles?.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-4">
@@ -386,7 +411,6 @@ const ProductDetailPage = () => {
                   <div className="flex flex-wrap gap-3">
                     {product.couleurs_disponibles.map((color, idx) => {
                       const colorStyle = getColorStyle(color);
-                      const isGradient = colorStyle.includes('gradient');
                       
                       return (
                         <button
@@ -430,7 +454,6 @@ const ProductDetailPage = () => {
                 </div>
               )}
 
-              {/* Sélecteur de tailles */}
               {product.tailles_disponibles?.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-4">
@@ -459,7 +482,6 @@ const ProductDetailPage = () => {
                 </div>
               )}
 
-              {/* Quantité */}
               <div className="mb-8">
                 <h3 className="font-bold text-lg mb-4 text-gray-900">Quantité</h3>
                 <div className="inline-flex items-center border-3 border-gray-200 rounded-xl overflow-hidden shadow-md">
@@ -481,7 +503,6 @@ const ProductDetailPage = () => {
                 </div>
               </div>
 
-              {/* Boutons d'action */}
               <div className="space-y-3 mb-8">
                 <button
                   onClick={handleAddToCart}
@@ -500,7 +521,6 @@ const ProductDetailPage = () => {
                 </button>
               </div>
 
-              {/* Avantages */}
               <div className="grid grid-cols-3 gap-4 p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl">
                 <div className="text-center">
                   <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mx-auto mb-2 shadow-md">
@@ -526,7 +546,6 @@ const ProductDetailPage = () => {
             </div>
           </div>
 
-          {/* Description complète */}
           {product.description && (
             <div className="mt-8 bg-white rounded-3xl shadow-xl p-8">
               <h2 className="text-3xl font-bold mb-6 text-gray-900">Description</h2>
@@ -538,7 +557,6 @@ const ProductDetailPage = () => {
             </div>
           )}
 
-          {/* Produits similaires */}
           {relatedProducts.length > 0 && (
             <div className="mt-12 mb-12">
               <div className="flex items-center justify-between mb-8">
@@ -587,22 +605,29 @@ const ProductDetailPage = () => {
         </div>
       </div>
 
-      {/* Modal Zoom */}
       {showZoom && (
         <div 
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
           onClick={() => setShowZoom(false)}
         >
           <button 
-            onClick={() => setShowZoom(false)}
-            className="absolute top-4 right-4 w-12 h-12 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowZoom(false);
+            }}
+            className="absolute top-4 right-4 w-12 h-12 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors z-10"
           >
             <X className="h-6 w-6" />
           </button>
           <img
-            src={images[currentImageIndex]?.original || product.image}
+            src={images[currentImageIndex]?.original || product.image || '/images/placeholder-product.jpg'}
             alt={product.nom}
             className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = '/images/placeholder-product.jpg';
+            }}
           />
         </div>
       )}

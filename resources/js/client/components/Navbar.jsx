@@ -139,7 +139,15 @@ const Navbar = ({
                           onClick={() => { onNavigate('product', product.slug); setShowSearchDropdown(false); }}
                           className="w-full flex items-center gap-3 p-3 hover:bg-purple-50 rounded-lg"
                         >
-                          <img src={product.image} alt={product.nom} className="w-12 h-12 object-cover rounded-lg" />
+                          <img 
+                            src={product.image || '/images/placeholder-product.jpg'} 
+                            alt={product.nom} 
+                            className="w-12 h-12 object-cover rounded-lg"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = '/images/placeholder-product.jpg';
+                            }}
+                          />
                           <div className="flex-1 text-left">
                             <p className="font-medium text-gray-900">{product.nom}</p>
                             <p className="text-purple-600 font-semibold">{product.prix_affiche?.toLocaleString()} {mergedConfig.currency}</p>
@@ -223,7 +231,17 @@ const Navbar = ({
                       <div className="bg-white rounded-2xl shadow-2xl border-2 border-gray-100 p-6">
                         <div className="flex gap-6">
                           <div className="w-1/3 border-r pr-6">
-                            {category.image && <img src={category.image} alt={category.nom} className="w-full h-32 object-cover rounded-lg mb-4" />}
+                            {category.image && (
+                              <img 
+                                src={category.image} 
+                                alt={category.nom} 
+                                className="w-full h-32 object-cover rounded-lg mb-4"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = '/images/placeholder-product.jpg';
+                                }}
+                              />
+                            )}
                             <h3 className="font-bold text-lg mb-2">{category.nom}</h3>
                             <p className="text-sm text-gray-600 mb-4">{category.description}</p>
                             <button onClick={() => onNavigate('category', category.slug)} className="flex items-center gap-2 text-sm text-purple-600 font-semibold">
@@ -238,8 +256,16 @@ const Navbar = ({
                                 {categoryProducts[category.slug].slice(0, 6).map((product) => (
                                   <button key={product.id} onClick={() => onNavigate('product', product.slug)} className="text-left">
                                     <div className="aspect-square bg-gray-100 rounded-xl overflow-hidden mb-2 relative">
-                                      <img src={product.image} alt={product.nom} className="w-full h-full object-cover hover:scale-110 transition-transform" />
-                                      {product.en_promo && (
+                                      <img 
+                                        src={product.image || '/images/placeholder-product.jpg'} 
+                                        alt={product.nom} 
+                                        className="w-full h-full object-cover hover:scale-110 transition-transform"
+                                        onError={(e) => {
+                                          e.target.onerror = null;
+                                          e.target.src = '/images/placeholder-product.jpg';
+                                        }}
+                                      />
+                                      {product.en_promo && product.prix && product.prix_promo && (
                                         <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
                                           -{Math.round(((product.prix - product.prix_promo) / product.prix) * 100)}%
                                         </div>

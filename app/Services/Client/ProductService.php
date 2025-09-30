@@ -12,72 +12,75 @@ use Illuminate\Support\Facades\Cache;
 class ProductService
 {
     public function getProducts(array $filters = []): array
-    {
-        $query = Produit::where('est_visible', true)
-            ->with(['category', 'images_produits' => function($q) {
-                $q->where('est_principale', true)->orWhere('ordre_affichage', 1);
-            }]);
+{
+    $query = Produit::where('est_visible', true)
+        ->with(['category', 'images_produits' => function($q) {
+            $q->where('est_principale', true)->orWhere('ordre_affichage', 1);
+        }]);
 
-        // Filtres
-        if (isset($filters['category'])) {
-            $query->where('categorie_id', $filters['category']);
-        }
-
-        if (isset($filters['search'])) {
-            $query->where(function($q) use ($filters) {
-                $q->where('nom', 'ILIKE', "%{$filters['search']}%")
-                  ->orWhere('description', 'ILIKE', "%{$filters['search']}%")
-                  ->orWhere('tags', 'ILIKE', "%{$filters['search']}%");
-            });
-        }
-
-        if (isset($filters['min_price'])) {
-            $query->where('prix', '>=', $filters['min_price']);
-        }
-
-        if (isset($filters['max_price'])) {
-            $query->where('prix', '<=', $filters['max_price']);
-        }
-
-        if (isset($filters['on_sale'])) {
-            $query->whereNotNull('prix_promo');
-        }
-
-        // Tri
-        $sort = $filters['sort'] ?? 'created_at';
-        $direction = $filters['direction'] ?? 'desc';
-        
-        switch ($sort) {
-            case 'price_asc':
-                $query->orderBy('prix', 'asc');
-                break;
-            case 'price_desc':
-                $query->orderBy('prix', 'desc');
-                break;
-            case 'popular':
-                $query->orderBy('nombre_vues', 'desc');
-                break;
-            case 'rating':
-                $query->orderBy('note_moyenne', 'desc');
-                break;
-            default:
-                $query->orderBy($sort, $direction);
-        }
-
-        $perPage = $filters['per_page'] ?? 20;
-        $products = $query->paginate($perPage);
-
-        return [
-            'products' => $products->items(),
-            'pagination' => [
-                'current_page' => $products->currentPage(),
-                'last_page' => $products->lastPage(),
-                'per_page' => $products->perPage(),
-                'total' => $products->total(),
-                'has_more' => $products->hasMorePages()
-            ]
-        ];
+    // Filtres
+    if (isset($filters['category'])) {
+        $query->where('categorie_id', $filters['category']);
     }
+
+    if (isset($filters['search'])) {
+        $query->where(function($q) use ($filters) {
+            $q->where('nom', 'ILIKE', "%{$filters['search']}%")
+              ->orWhere('description', 'ILIKE', "%{$filters['search']}%");
+        });
+    }
+
+    if (isset($filters['min_price']) && $filters['min_price']) {
+        $query->where('prix', '>=', $filters['min_price']);
+    }
+
+    if (isset($filters['max_price']) && $filters['max_price']) {
+        $query->where('prix', '<=', $filters['max_price']);
+    }
+
+    if (isset($filters['on_sale']) && $filters['on_sale']) {
+        $query->whereNotNull('prix_promo');
+    }
+
+    // Tri
+    $sort = $filters['sort'] ?? 'recent';
+    
+    switch ($sort) {
+        case 'price_asc':
+            $query->orderBy('prix', 'asc');
+            break;
+        case 'price_desc':
+            $query->orderBy('prix', 'desc');
+            break;
+        case 'popular':
+            $query->orderBy('nombre_vues', 'desc');
+            break;
+        case 'rating':
+            $query->orderBy('note_moyenne', 'desc');
+            break;
+        default:
+            $query->orderBy('created_at', 'desc');
+    }
+
+    $perPage = $filters['per_page'] ?? 20;
+    $products = $query->paginate($perPage);
+
+    // IMPORTANT : Formater les produits
+    $formattedProducts = $products->map(function ($product) {
+        return $this->formatProductCard($product);
+    });
+
+    return [
+        'products' => $formattedProducts,
+        'pagination' => [
+            'current_page' => $products->currentPage(),
+            'last_page' => $products->lastPage(),
+            'per_page' => $products->perPage(),
+            'total' => $products->total(),
+            'has_more' => $products->hasMorePages()
+        ]
+    ];
+}
 
     public function getProductBySlug(string $slug): ?array
     {
@@ -233,24 +236,29 @@ class ProductService
     ];
 }
     private function formatProductCard(Produit $product): array
-    {
-        $image = $product->images_produits->first();
-        
-        return [
-            'id' => $product->id,
-            'nom' => $product->nom,
-            'slug' => $product->slug,
-            'prix' => $product->prix,
-            'prix_promo' => $product->prix_promo,
-            'prix_affiche' => $product->prix_promo ?: $product->prix,
-            'en_promo' => $product->prix_promo !== null,
-            'image' => $image ? asset('storage/' . $image->chemin_original) : '/images/placeholder.jpg',
-            'note_moyenne' => $product->note_moyenne,
-            'nombre_avis' => $product->nombre_avis,
-            'url' => "/products/{$product->slug}",
-            'badge' => $this->getProductBadge($product)
-        ];
-    }
+{
+    $image = $product->images_produits->first();
+    
+    return [
+        'id' => $product->id,
+        'nom' => $product->nom,
+        'slug' => $product->slug,
+        'description_courte' => $product->description_courte,
+        'prix' => $product->prix,
+        'prix_promo' => $product->prix_promo,
+        'prix_affiche' => $product->prix_promo ?: $product->prix,
+        'en_promo' => $product->prix_promo !== null,
+        'image' => $image && $image->chemin_original ? 
+            asset('storage/' . $image->chemin_original) : 
+            asset('images/placeholder-product.jpg'),
+        'note_moyenne' => $product->note_moyenne ?? 0,
+        'nombre_avis' => $product->nombre_avis ?? 0,
+        'est_nouveaute' => $product->est_nouveaute,
+        'est_populaire' => $product->est_populaire,
+        'url' => "/products/{$product->slug}",
+        'badge' => $this->getProductBadge($product)
+    ];
+}
 
     private function getProductBadge(Produit $product): ?array
     {
@@ -269,4 +277,48 @@ class ProductService
         
         return null;
     }
+
+
+
+    
+    public function getProductDetailPageData(string $slug): array
+{
+    $product = Produit::where('slug', $slug)
+        ->where('est_visible', true)
+        ->with([
+            'category',
+            'images_produits' => function($q) {
+                $q->orderBy('ordre_affichage');
+            }
+        ])
+        ->first();
+
+    if (!$product) {
+        return ['success' => false, 'message' => 'Produit non trouvé'];
+    }
+
+    // Incrémenter les vues
+    $product->increment('nombre_vues');
+
+    // Charger produits similaires
+    $related = Produit::where('est_visible', true)
+        ->where('id', '!=', $product->id)
+        ->where('categorie_id', $product->categorie_id)
+        ->with(['images_produits' => function($q) {
+            $q->where('est_principale', true);
+        }])
+        ->inRandomOrder()
+        ->limit(8)
+        ->get();
+
+    return [
+        'success' => true,
+        'data' => [
+            'product' => $this->formatProductDetails($product),
+            'related_products' => $related->map(function ($p) {
+                return $this->formatProductCard($p);
+            })->toArray()
+        ]
+    ];
+}
 }

@@ -192,4 +192,17 @@ class ProductController extends Controller
             ], 500);
         }
     }
+
+    public function getPageData(string $slug): JsonResponse
+{
+    try {
+        $result = $this->productService->getProductDetailPageData($slug);
+        return response()->json($result);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors du chargement'
+        ], 500);
+    }
+}
 }
