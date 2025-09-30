@@ -85,37 +85,39 @@ class CategoryController extends Controller
     }
 
     public function getProducts(string $slug, Request $request): JsonResponse
-    {
-        try {
-            $category = Category::where('slug', $slug)
-                ->where('est_active', true)
-                ->first();
+{
+    try {
+        $category = Category::where('slug', $slug)
+            ->where('est_active', true)
+            ->first();
 
-            if (!$category) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Catégorie non trouvée'
-                ], 404);
-            }
-
-            $filters = $request->only([
-                'search', 'min_price', 'max_price', 'on_sale', 
-                'sort', 'direction', 'per_page'
-            ]);
-            $filters['category'] = $category->id;
-
-            $result = $this->productService->getProducts($filters);
-
-            return response()->json([
-                'success' => true,
-                'data' => $result
-            ]);
-
-        } catch (\Exception $e) {
+        if (!$category) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors du chargement des produits'
-            ], 500);
+                'message' => 'Catégorie non trouvée'
+            ], 404);
         }
+
+        $filters = $request->only([
+            'search', 'min_price', 'max_price', 'on_sale', 
+            'sort', 'direction', 'per_page'
+        ]);
+        $filters['category'] = $category->id;
+
+        $result = $this->productService->getProducts($filters);
+
+        return response()->json([
+            'success' => true,
+            'data' => $result
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Erreur getProducts:', ['error' => $e->getMessage()]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors du chargement des produits'
+        ], 500);
     }
+}
 }

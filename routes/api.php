@@ -186,11 +186,11 @@ Route::prefix('client')->group(function () {
 });
     
     // =================== CATÉGORIES ===================
-    Route::prefix('categories')->group(function () {
-        Route::get('/', [CategoryController::class, 'index']);
-        Route::get('/{slug}', [CategoryController::class, 'show']);
-        Route::get('/{slug}/products', [CategoryController::class, 'getProducts']);
-    });
+   Route::prefix('categories')->group(function () {
+    Route::get('/', [ClientCategoryController::class, 'index']);
+    Route::get('/{slug}', [ClientCategoryController::class, 'show']);
+    Route::get('/{slug}/products', [ClientCategoryController::class, 'getProducts']);
+});
     
     // =================== RECHERCHE ===================
     Route::prefix('search')->group(function () {

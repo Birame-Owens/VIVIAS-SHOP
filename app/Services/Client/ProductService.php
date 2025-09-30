@@ -183,54 +183,55 @@ class ProductService
         ];
     }
 
-    private function formatProductDetails(Produit $product): array
-    {
-        return [
-            'id' => $product->id,
-            'nom' => $product->nom,
-            'slug' => $product->slug,
-            'description' => $product->description,
-            'description_courte' => $product->description_courte,
-            'prix' => $product->prix,
-            'prix_promo' => $product->prix_promo,
-            'prix_affiche' => $product->prix_promo ?: $product->prix,
-            'en_promo' => $product->prix_promo !== null,
-            'pourcentage_reduction' => $product->prix_promo ? 
-                round(((($product->prix - $product->prix_promo) / $product->prix) * 100), 0) : 0,
-            'category' => $product->category ? [
-                'id' => $product->category->id,
-                'nom' => $product->category->nom,
-                'slug' => $product->category->slug
-            ] : null,
-            'images' => $product->images_produits->map(function ($image) {
-                return [
-                    'id' => $image->id,
-                    'original' => asset('storage/' . $image->chemin_original),
-                    'thumbnail' => asset('storage/' . $image->chemin_miniature),
-                    'medium' => asset('storage/' . $image->chemin_moyen),
-                    'alt_text' => $image->alt_text ?: $product->nom,
-                    'est_principale' => $image->est_principale
-                ];
-            })->toArray(),
-            'tailles_disponibles' => $product->tailles_disponibles ? 
-                json_decode($product->tailles_disponibles, true) : [],
-            'couleurs_disponibles' => $product->couleurs_disponibles ? 
-                json_decode($product->couleurs_disponibles, true) : [],
-            'stock_disponible' => $product->gestion_stock ? $product->stock_disponible : null,
-            'en_stock' => !$product->gestion_stock || $product->stock_disponible > 0,
-            'fait_sur_mesure' => $product->fait_sur_mesure,
-            'delai_production_jours' => $product->delai_production_jours,
-            'note_moyenne' => $product->note_moyenne,
-            'nombre_avis' => $product->nombre_avis,
-            'tags' => $product->tags ? explode(',', $product->tags) : [],
-            'meta' => [
-                'views' => $product->nombre_vues,
-                'sales' => $product->nombre_ventes,
-                'created_at' => $product->created_at->toISOString()
-            ]
-        ];
-    }
-
+   private function formatProductDetails(Produit $product): array
+{
+    return [
+        'id' => $product->id,
+        'nom' => $product->nom,
+        'slug' => $product->slug,
+        'description' => $product->description,
+        'description_courte' => $product->description_courte,
+        'prix' => $product->prix,
+        'prix_promo' => $product->prix_promo,
+        'prix_affiche' => $product->prix_promo ?: $product->prix,
+        'en_promo' => $product->prix_promo !== null,
+        'pourcentage_reduction' => $product->prix_promo ? 
+            round(((($product->prix - $product->prix_promo) / $product->prix) * 100), 0) : 0,
+        'category' => $product->category ? [
+            'id' => $product->category->id,
+            'nom' => $product->category->nom,
+            'slug' => $product->category->slug
+        ] : null,
+        'images' => $product->images_produits->map(function ($image) use ($product) {
+            return [
+                'id' => $image->id,
+                'original' => $image->chemin_original ? asset('storage/' . $image->chemin_original) : asset('images/placeholder.jpg'),
+                'thumbnail' => $image->chemin_miniature ? asset('storage/' . $image->chemin_miniature) : asset('images/placeholder.jpg'),
+                'medium' => $image->chemin_moyen ? asset('storage/' . $image->chemin_moyen) : asset('images/placeholder.jpg'),
+                'alt_text' => $image->alt_text ?: $product->nom,
+                'est_principale' => $image->est_principale
+            ];
+        })->toArray(),
+        'tailles_disponibles' => $product->tailles_disponibles ? 
+            json_decode($product->tailles_disponibles, true) : [],
+        'couleurs_disponibles' => $product->couleurs_disponibles ? 
+            json_decode($product->couleurs_disponibles, true) : [],
+        'stock_disponible' => $product->gestion_stock ? $product->stock_disponible : null,
+        'en_stock' => !$product->gestion_stock || $product->stock_disponible > 0,
+        'fait_sur_mesure' => $product->fait_sur_mesure,
+        'delai_production_jours' => $product->delai_production_jours,
+        'note_moyenne' => $product->note_moyenne,
+        'nombre_avis' => $product->nombre_avis,
+        'tags' => $product->tags ? explode(',', $product->tags) : [],
+        'est_nouveaute' => $product->est_nouveaute,
+        'est_populaire' => $product->est_populaire,
+        'meta' => [
+            'views' => $product->nombre_vues,
+            'sales' => $product->nombre_ventes,
+            'created_at' => $product->created_at->toISOString()
+        ]
+    ];
+}
     private function formatProductCard(Produit $product): array
     {
         $image = $product->images_produits->first();

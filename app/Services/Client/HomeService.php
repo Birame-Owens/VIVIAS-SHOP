@@ -145,28 +145,28 @@ class HomeService
      * Aperçu des catégories principales
      */
     public function getCategoriesPreview(): array
-    {
-        $categories = Category::where('est_active', true)
-            ->where('est_populaire', true)
-            ->withCount('produits')
-            ->orderBy('ordre_affichage')
-            ->limit(6)
-            ->get();
+{
+    $categories = Category::where('est_active', true)
+        // Retirez le filtre est_populaire pour afficher toutes les catégories actives
+        ->withCount('produits')
+        ->orderBy('ordre_affichage')
+        ->limit(8) // Augmenté à 8 au lieu de 6
+        ->get();
 
-        return $categories->map(function ($category) {
-            return [
-                'id' => $category->id,
-                'nom' => $category->nom,
-                'slug' => $category->slug,
-                'description' => $category->description,
-                'image' => $category->image ? asset('storage/' . $category->image) : null,
-                'couleur_theme' => $category->couleur_theme,
-                'produits_count' => $category->produits_count,
-                'url' => '/categories/' . $category->slug
-            ];
-        })->toArray();
-    }
-
+    return $categories->map(function ($category) {
+        return [
+            'id' => $category->id,
+            'nom' => $category->nom,
+            'slug' => $category->slug,
+            'description' => $category->description,
+            'image' => $category->image ? asset('storage/' . $category->image) : null,
+            'couleur_theme' => $category->couleur_theme,
+            'produits_count' => $category->produits_count,
+            'est_populaire' => $category->est_populaire ?? false,
+            'url' => '/categories/' . $category->slug
+        ];
+    })->toArray();
+}
     /**
      * Promotions actives pour les bannières
      */
@@ -431,50 +431,54 @@ class HomeService
      * Formater un produit pour l'affichage client
      */
     private function formatProductForClient(Produit $produit, array $options = []): array
-    {
-        $image = $produit->images_produits->first();
-        $isCompact = $options['compact'] ?? false;
+{
+    $image = $produit->images_produits->first();
+    $isCompact = $options['compact'] ?? false;
 
-        $data = [
-            'id' => $produit->id,
-            'nom' => $produit->nom,
-            'slug' => $produit->slug,
-            'prix' => $produit->prix,
-            'prix_promo' => $produit->prix_promo,
-            'prix_affiche' => $produit->prix_promo ?: $produit->prix,
-            'en_promo' => $produit->prix_promo !== null,
-            'image' => $image ? asset('storage/' . $image->chemin_original) : asset('images/placeholder-product.jpg'),
-            'url' => '/products/' . $produit->slug
-        ];
+    $data = [
+        'id' => $produit->id,
+        'nom' => $produit->nom,
+        'slug' => $produit->slug,
+        'prix' => $produit->prix,
+        'prix_promo' => $produit->prix_promo,
+        'prix_affiche' => $produit->prix_promo ?: $produit->prix,
+        'en_promo' => $produit->prix_promo !== null,
+        'image' => $image && $image->chemin_original ? 
+            asset('storage/' . $image->chemin_original) : 
+            asset('images/placeholder-product.jpg'),
+        'url' => '/products/' . $produit->slug,
+        'est_nouveaute' => $produit->est_nouveaute,
+        'est_populaire' => $produit->est_populaire
+    ];
 
-        if (!$isCompact) {
-            $data = array_merge($data, [
-                'description_courte' => $produit->description_courte,
-                'categorie' => $produit->category ? [
-                    'nom' => $produit->category->nom,
-                    'slug' => $produit->category->slug
-                ] : null,
-                'note_moyenne' => $produit->note_moyenne,
-                'nombre_avis' => $produit->nombre_avis,
-                'fait_sur_mesure' => $produit->fait_sur_mesure,
-                'stock_disponible' => $produit->gestion_stock ? $produit->stock_disponible : null,
-                'en_stock' => !$produit->gestion_stock || $produit->stock_disponible > 0,
-                'tailles_disponibles' => $produit->tailles_disponibles ? json_decode($produit->tailles_disponibles, true) : [],
-                'couleurs_disponibles' => $produit->couleurs_disponibles ? json_decode($produit->couleurs_disponibles, true) : [],
-                'whatsapp_url' => $this->generateWhatsAppUrl($produit)
-            ]);
-        }
-
-        // Ajouter les badges si spécifiés
-        if (isset($options['badge'])) {
-            $data['badge'] = [
-                'text' => $options['badge'],
-                'color' => $options['badge_color'] ?? 'blue'
-            ];
-        }
-
-        return $data;
+    if (!$isCompact) {
+        $data = array_merge($data, [
+            'description_courte' => $produit->description_courte,
+            'categorie' => $produit->category ? [
+                'nom' => $produit->category->nom,
+                'slug' => $produit->category->slug
+            ] : null,
+            'note_moyenne' => $produit->note_moyenne ?? 0,
+            'nombre_avis' => $produit->nombre_avis ?? 0,
+            'fait_sur_mesure' => $produit->fait_sur_mesure,
+            'stock_disponible' => $produit->gestion_stock ? $produit->stock_disponible : null,
+            'en_stock' => !$produit->gestion_stock || $produit->stock_disponible > 0,
+            'tailles_disponibles' => $produit->tailles_disponibles ? 
+                json_decode($produit->tailles_disponibles, true) : [],
+            'couleurs_disponibles' => $produit->couleurs_disponibles ? 
+                json_decode($produit->couleurs_disponibles, true) : []
+        ]);
     }
+
+    if (isset($options['badge'])) {
+        $data['badge'] = [
+            'text' => $options['badge'],
+            'color' => $options['badge_color'] ?? 'blue'
+        ];
+    }
+
+    return $data;
+}
 
     /**
      * Formater la valeur d'une promotion

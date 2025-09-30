@@ -1,6 +1,5 @@
 <?php
 
-
 namespace App\Http\Controllers\Api\Client;
 
 use App\Http\Controllers\Controller;
@@ -21,17 +20,9 @@ class CartController extends Controller
     {
         try {
             $cart = $this->cartService->getCart();
-
-            return response()->json([
-                'success' => true,
-                'data' => $cart
-            ]);
-
+            return response()->json(['success' => true, 'data' => $cart]);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors du chargement du panier'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
         }
     }
 
@@ -39,7 +30,6 @@ class CartController extends Controller
     {
         try {
             $validated = $request->validated();
-            
             $result = $this->cartService->addItem(
                 $validated['product_id'],
                 $validated['quantity'] ?? 1,
@@ -48,14 +38,9 @@ class CartController extends Controller
                     'couleur' => $validated['couleur'] ?? null
                 ]
             );
-
             return response()->json($result);
-
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de l\'ajout au panier'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
         }
     }
 
@@ -64,14 +49,9 @@ class CartController extends Controller
         try {
             $validated = $request->validated();
             $result = $this->cartService->updateItem($itemId, $validated['quantity']);
-
             return response()->json($result);
-
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la mise à jour'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
         }
     }
 
@@ -79,80 +59,83 @@ class CartController extends Controller
     {
         try {
             $result = $this->cartService->removeItem($itemId);
-
             return response()->json($result);
-
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la suppression'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
         }
     }
 
+    // ⚠️ CORRIGÉ - Utilisez cartService au lieu de wishlistService
     public function clear(): JsonResponse
     {
         try {
-            $result = $this->wishlistService->clearWishlist();
-
+            $result = $this->cartService->clearCart();
             return response()->json($result);
-
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la suppression des favoris'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
         }
     }
 
+    // ⚠️ CORRIGÉ - Utilisez cartService
     public function getCount(): JsonResponse
     {
         try {
-            $count = $this->wishlistService->getCount();
-
+            $cart = $this->cartService->getCart();
             return response()->json([
                 'success' => true,
-                'data' => ['count' => $count]
+                'data' => ['count' => $cart['count']]
             ]);
-
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors du comptage'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Erreur comptage'], 500);
         }
     }
 
-    public function moveToCart(int $productId): JsonResponse
+    public function getTotal(): JsonResponse
     {
         try {
-            $result = $this->wishlistService->moveToCart($productId);
+            $cart = $this->cartService->getCart();
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'subtotal' => $cart['subtotal'],
+                    'discount' => $cart['discount'],
+                    'shipping_fee' => $cart['shipping_fee'],
+                    'total' => $cart['total']
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
+        }
+    }
 
+    public function applyCoupon(CartRequest $request): JsonResponse
+    {
+        try {
+            $validated = $request->validated();
+            $result = $this->cartService->applyCoupon($validated['code']);
             return response()->json($result);
-
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors du déplacement'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
         }
     }
 
-    public function checkProduct(int $productId): JsonResponse
+    public function removeCoupon(): JsonResponse
     {
         try {
-            $isInWishlist = $this->wishlistService->isInWishlist($productId);
-
-            return response()->json([
-                'success' => true,
-                'data' => ['is_in_wishlist' => $isInWishlist]
-            ]);
-
+            $result = $this->cartService->removeCoupon();
+            return response()->json($result);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la vérification'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
+        }
+    }
+
+    public function generateWhatsAppMessage(): JsonResponse
+    {
+        try {
+            $result = $this->cartService->generateWhatsAppMessage();
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
         }
     }
 }

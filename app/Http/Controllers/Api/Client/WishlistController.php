@@ -49,6 +49,52 @@ class WishlistController extends Controller
             ], 500);
         }
     }
+    public function getCount(): JsonResponse
+    {
+        try {
+            $count = $this->wishlistService->getCount();
+            return response()->json([
+                'success' => true,
+                'data' => ['count' => $count]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
+        }
+    }
+
+    public function clear(): JsonResponse
+    {
+        try {
+            $result = $this->wishlistService->clearWishlist();
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
+        }
+    }
+
+    public function moveToCart(int $productId): JsonResponse
+    {
+        try {
+            $result = $this->wishlistService->moveToCart($productId);
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
+        }
+    }
+
+    public function checkProduct(int $productId): JsonResponse
+    {
+        try {
+            $isInWishlist = $this->wishlistService->isInWishlist($productId);
+            return response()->json([
+                'success' => true,
+                'data' => ['is_in_wishlist' => $isInWishlist]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
+        }
+    }
+
 
     public function remove(int $productId): JsonResponse
     {
