@@ -1,7 +1,5 @@
 <?php
 
-
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Admin\AuthController;
@@ -15,8 +13,6 @@ use App\Http\Controllers\Api\Admin\PromotionController;
 use App\Http\Controllers\Api\Admin\AvisClientController;
 use App\Http\Controllers\Api\Admin\RapportController;
 use App\Http\Controllers\Api\Client\HomeController;
-
-use App\Http\Controllers\Api\Client\HomeController as ClientHomeController;
 use App\Http\Controllers\Api\Client\NavigationController;
 use App\Http\Controllers\Api\Client\ProductController as ClientProductController;
 use App\Http\Controllers\Api\Client\CategoryController as ClientCategoryController;
@@ -25,13 +21,23 @@ use App\Http\Controllers\Api\Client\WishlistController;
 use App\Http\Controllers\Api\Client\AuthController as ClientAuthController;
 use App\Http\Controllers\Api\Client\SearchController;
 use App\Http\Controllers\Api\Client\NewsletterController;
-
-
-
+use App\Http\Controllers\Api\Client\CheckoutController;
+use App\Http\Controllers\Api\Client\StripeWebhookController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
+
+// =================== WEBHOOKS (HORS AUTHENTIFICATION) ===================
+// Ces routes DOIVENT être en dehors de tout middleware auth
+Route::post('/client/webhook/stripe', [StripeWebhookController::class, 'handle'])
+    ->name('api.client.webhook.stripe');
+
+Route::post('/client/webhook/wave', [PaiementController::class, 'webhookWave'])
+    ->name('api.client.webhook.wave');
+
+Route::post('/client/webhook/orange-money', [PaiementController::class, 'webhookOrangeMoney'])
+    ->name('api.client.webhook.orange-money');
 
 // Routes admin
 Route::prefix('admin')->group(function () {
@@ -50,14 +56,10 @@ Route::prefix('admin')->group(function () {
         Route::get('/dashboard/quick-stats', [DashboardController::class, 'quickStats']);
 
         // =================== SYSTÈME DE RAPPORTS ===================
-        
-        // Liste et informations générales des rapports
         Route::get('/rapports', [RapportController::class, 'index']);
         Route::get('/rapports/dashboard', [RapportController::class, 'dashboard']);
         Route::get('/rapports/alertes', [RapportController::class, 'alertes']);
         Route::get('/rapports/tendances', [RapportController::class, 'tendances']);
-        
-        // Rapports spécifiques par type
         Route::get('/rapports/ventes', [RapportController::class, 'ventes']);
         Route::get('/rapports/produits', [RapportController::class, 'produits']);
         Route::get('/rapports/clients', [RapportController::class, 'clients']);
@@ -66,17 +68,11 @@ Route::prefix('admin')->group(function () {
         Route::get('/rapports/commandes', [RapportController::class, 'commandes']);
         Route::get('/rapports/tailleurs', [RapportController::class, 'tailleurs']);
         Route::get('/rapports/tissus', [RapportController::class, 'tissus']);
-        // Dans la section rapports
         Route::get('/rapports/analytics', [RapportController::class, 'analytics']);
         Route::get('/rapports/performance-produits', [RapportController::class, 'performanceProduits']);
-
-
-        // Export et fonctionnalités avancées
         Route::post('/rapports/export', [RapportController::class, 'export']);
         Route::post('/rapports/comparatif', [RapportController::class, 'comparatif']);
         Route::post('/rapports/planifier', [RapportController::class, 'planifier']);
-
-        // =================== FIN SYSTÈME DE RAPPORTS ===================
 
         // Catégories
         Route::get('/categories/options', [CategoryController::class, 'options']);
@@ -90,9 +86,7 @@ Route::prefix('admin')->group(function () {
         Route::post('/produits/{produit}/images/order', [ProduitController::class, 'updateImagesOrder']);
         Route::apiResource('produits', ProduitController::class);
 
-        // =================== COMMANDES - NOUVELLE IMPLÉMENTATION ===================
-        
-        // Routes auxiliaires pour les commandes (AVANT les routes avec paramètres)
+        // =================== COMMANDES ===================
         Route::get('/commandes/statistics', [CommandeController::class, 'getStatistics']);
         Route::get('/commandes/clients-with-mesures', [CommandeController::class, 'getClientsWithMesures']);
         Route::get('/commandes/produits', [CommandeController::class, 'getProduits']);
@@ -101,16 +95,10 @@ Route::prefix('admin')->group(function () {
         Route::get('/commandes/quick-search', [CommandeController::class, 'quickSearch']);
         Route::get('/commandes/export', [CommandeController::class, 'export']);
         Route::get('/commandes/daily-report', [CommandeController::class, 'getDailyReport']);
-        
-        // Routes avec paramètres de commande spécifique
         Route::post('/commandes/{commande}/update-status', [CommandeController::class, 'updateStatus']);
         Route::post('/commandes/{commande}/duplicate', [CommandeController::class, 'duplicate']);
         Route::post('/commandes/{commande}/mark-paid', [CommandeController::class, 'markAsPaid']);
-        
-        // Routes CRUD principales (à la fin)
         Route::apiResource('commandes', CommandeController::class);
-
-        // =================== FIN COMMANDES ===================
 
         // Clients
         Route::get('/clients/stats', [ClientController::class, 'stats']);
@@ -128,8 +116,6 @@ Route::prefix('admin')->group(function () {
         Route::post('/paiements/{paiement}/reject', [PaiementController::class, 'reject']);
         Route::post('/paiements/{paiement}/refund', [PaiementController::class, 'refund']);
         Route::get('/paiements/{paiement}/check-status', [PaiementController::class, 'checkStatus']);
-        Route::post('/paiements/webhook/wave', [PaiementController::class, 'webhookWave']);
-        Route::post('/paiements/webhook/orange-money', [PaiementController::class, 'webhookOrangeMoney']);
         Route::apiResource('paiements', PaiementController::class);
 
         // Promotions
@@ -149,15 +135,10 @@ Route::prefix('admin')->group(function () {
         Route::post('/avis-clients/{avis}/toggle-mise-en-avant', [AvisClientController::class, 'toggleMiseEnAvant']);
         Route::post('/avis-clients/{avis}/toggle-verifie', [AvisClientController::class, 'toggleVerifie']);
         Route::apiResource('avis-clients', AvisClientController::class)->only(['index', 'show', 'destroy']);
-
-        
     });
-    
 });
 
-
 Route::prefix('client')->group(function () {
-    
     // =================== PAGE D'ACCUEIL ===================
     Route::get('/home', [HomeController::class, 'index']);
     Route::get('/featured-products', [HomeController::class, 'featuredProducts']);
@@ -174,33 +155,30 @@ Route::prefix('client')->group(function () {
     
     // =================== PRODUITS ===================
     Route::prefix('products')->group(function () {
-    Route::get('/', [ClientProductController::class, 'index']);
-    Route::get('/trending', [ClientProductController::class, 'trending']);
-    Route::get('/new-arrivals', [ClientProductController::class, 'newArrivals']);
-    Route::get('/on-sale', [ClientProductController::class, 'onSale']);
-    Route::get('/{slug}/page-data', [ClientProductController::class, 'getPageData']);
-    
-    Route::get('/{slug}', [ClientProductController::class, 'show']);
-    Route::get('/{id}/images', [ClientProductController::class, 'getImages']);
-    Route::get('/{id}/related', [ClientProductController::class, 'getRelated']);
-    Route::post('/{id}/view', [ClientProductController::class, 'incrementViews']);
-    Route::get('/{id}/whatsapp-data', [ClientProductController::class, 'getWhatsAppData']);
-
-    Route::get('/products/{slug}/page-data', [ProductController::class, 'getPageData']);
-});
+        Route::get('/', [ClientProductController::class, 'index']);
+        Route::get('/trending', [ClientProductController::class, 'trending']);
+        Route::get('/new-arrivals', [ClientProductController::class, 'newArrivals']);
+        Route::get('/on-sale', [ClientProductController::class, 'onSale']);
+        Route::get('/{slug}/page-data', [ClientProductController::class, 'getPageData']);
+        Route::get('/{slug}', [ClientProductController::class, 'show']);
+        Route::get('/{id}/images', [ClientProductController::class, 'getImages']);
+        Route::get('/{id}/related', [ClientProductController::class, 'getRelated']);
+        Route::post('/{id}/view', [ClientProductController::class, 'incrementViews']);
+        Route::get('/{id}/whatsapp-data', [ClientProductController::class, 'getWhatsAppData']);
+    });
     
     // =================== CATÉGORIES ===================
-   Route::prefix('categories')->group(function () {
-    Route::get('/', [ClientCategoryController::class, 'index']);
-    Route::get('/{slug}', [ClientCategoryController::class, 'show']);
-    Route::get('/{slug}/products', [ClientCategoryController::class, 'getProducts']);
-});
+    Route::prefix('categories')->group(function () {
+        Route::get('/', [ClientCategoryController::class, 'index']);
+        Route::get('/{slug}', [ClientCategoryController::class, 'show']);
+        Route::get('/{slug}/products', [ClientCategoryController::class, 'getProducts']);
+    });
     
     // =================== RECHERCHE ===================
     Route::prefix('search')->group(function () {
         Route::get('/', [SearchController::class, 'search']);
         Route::get('/suggestions', [SearchController::class, 'suggestions']);
-        Route::get('/quick', [HomeController::class, 'quickSearch']); // Compatibilité avec l'existant
+        Route::get('/quick', [HomeController::class, 'quickSearch']);
     });
     
     // =================== PANIER (SESSION BASED) ===================
@@ -216,7 +194,7 @@ Route::prefix('client')->group(function () {
         Route::post('/apply-coupon', [CartController::class, 'applyCoupon']);
         Route::delete('/remove-coupon', [CartController::class, 'removeCoupon']);
     });
-    
+
     // =================== FAVORIS (SESSION BASED) ===================
     Route::prefix('wishlist')->group(function () {
         Route::get('/', [WishlistController::class, 'index']);
@@ -240,15 +218,23 @@ Route::prefix('client')->group(function () {
             Route::post('/logout', [ClientAuthController::class, 'logout']);
             Route::get('/profile', [ClientAuthController::class, 'profile']);
             Route::put('/profile', [ClientAuthController::class, 'updateProfile']);
+            Route::get('/orders', [ClientAuthController::class, 'getOrders']); // ✅ Correct
             Route::get('/measurements', [ClientAuthController::class, 'getMeasurements']);
             Route::post('/measurements', [ClientAuthController::class, 'saveMeasurements']);
         });
     });
+
+    // =================== CHECKOUT & PAIEMENT ===================
+    Route::middleware(['auth:sanctum'])->group(function () {
+        Route::post('/checkout/process', [CheckoutController::class, 'process'])
+            ->name('api.client.checkout.process');
+        
+        Route::get('/payment/verify-stripe', [CheckoutController::class, 'verifyStripePayment'])
+            ->name('api.client.payment.verify-stripe');
+    });
     
     // =================== NEWSLETTER ===================
     Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe']);
-    // Compatibilité avec l'existant
-    Route::post('/newsletter/subscribe', [HomeController::class, 'subscribeNewsletter']);
     
     // =================== CONFIGURATION SYSTÈME ===================
     Route::get('/config', function() {
@@ -276,7 +262,9 @@ Route::prefix('client')->group(function () {
                     'dynamic_navigation' => true,
                     'product_carousel' => true,
                     'reviews' => true,
-                    'coupons' => true
+                    'coupons' => true,
+                    'stripe_payment' => true,
+                    'mobile_money' => true
                 ],
                 'limits' => [
                     'cart_max_items' => 50,
@@ -286,7 +274,6 @@ Route::prefix('client')->group(function () {
             ]
         ]);
     });
-    
 });
 
 // ================================================================

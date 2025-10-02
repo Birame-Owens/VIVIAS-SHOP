@@ -6,7 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Services\Client\AuthService;
 use App\Http\Requests\Client\AuthRequest;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request; // ✅ Ajoutez ceci
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log; // ✅ Ajoutez ceci
+use App\Models\Client; // ✅ Ajoutez ceci
+use App\Models\Commande; // ✅ Ajoutez ceci
 
 class AuthController extends Controller
 {
@@ -152,4 +156,65 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    // app/Http/Controllers/Api/Client/AuthController.php
+
+/**
+ * Obtenir l'historique des commandes du client
+ */
+public function getOrders(Request $request)
+{
+    try {
+        $user = Auth::user();
+        $client = Client::where('user_id', $user->id)->first();
+
+        if (!$client) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Client introuvable'
+            ], 404);
+        }
+
+        $commandes = Commande::with(['articles_commandes.produit', 'paiements'])
+            ->where('client_id', $client->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($commande) {
+                return [
+                    'id' => $commande->id,
+                    'numero_commande' => $commande->numero_commande,
+                    'date' => $commande->created_at->format('d/m/Y H:i'),
+                    'statut' => $commande->statut,
+                    'montant_total' => $commande->montant_total,
+                    'nombre_articles' => $commande->articles_commandes->count(),
+                    'est_payee' => $commande->paiements()
+                        ->where('statut', 'valide')
+                        ->sum('montant') >= $commande->montant_total,
+                    'articles' => $commande->articles_commandes->map(function($article) {
+                        return [
+                            'nom' => $article->nom_produit,
+                            'quantite' => $article->quantite,
+                            'prix' => $article->prix_unitaire,
+                            'image' => $article->produit->image_principale ?? null
+                        ];
+                    })
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $commandes
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Erreur récupération commandes', [
+            'error' => $e->getMessage()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la récupération des commandes'
+        ], 500);
+    }
+}
 }
