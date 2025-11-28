@@ -9,10 +9,6 @@ import "./client.css";
 const HomePage = lazy(() => import("./pages/HomePage"));
 const CategoryPage = lazy(() => import("./pages/CategoryPage"));
 const ProductDetailPage = lazy(() => import("./pages/ProductDetailPage"));
-const CartPage = lazy(() => import("./pages/CartPage"));
-const ProfilePage = lazy(() => import("./pages/ProfilePage"));
-const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
-const PaymentSuccessPage = lazy(() => import("./pages/PaymentSuccessPage"));
 
 // Context global
 export const AppContext = createContext({
@@ -39,11 +35,13 @@ const AppClient = () => {
 
     useEffect(() => {
         loadConfig();
+        // Précharger les données critiques en arrière-plan
         prefetchCriticalData();
     }, []);
 
     const loadConfig = async () => {
         try {
+            // Utiliser le cache si disponible
             const cachedConfig = sessionStorage.getItem('app_config');
             if (cachedConfig) {
                 setConfig(JSON.parse(cachedConfig));
@@ -54,12 +52,14 @@ const AppClient = () => {
             const response = await api.getConfig();
             if (response.success) {
                 setConfig(response.data);
+                // Mettre en cache pour les prochaines navigations
                 sessionStorage.setItem('app_config', JSON.stringify(response.data));
             } else {
                 throw new Error('Config non disponible');
             }
         } catch (error) {
             console.error('Erreur chargement config:', error);
+            // Configuration par défaut si erreur
             const defaultConfig = {
                 company: {
                     name: 'VIVIAS SHOP',
@@ -86,16 +86,21 @@ const AppClient = () => {
         }
     };
 
+    // Précharger les données critiques
     const prefetchCriticalData = async () => {
         try {
+            // Précharger les catégories
             api.getCategories();
+            // Précharger le compteur panier
             api.getCartCount();
+            // Précharger le compteur wishlist
             api.getWishlistCount();
         } catch (error) {
             console.error('Erreur préchargement:', error);
         }
     };
 
+    // Fonction pour précharger un produit (utilisée au survol)
     const prefetchProduct = (slug) => {
         if (slug) {
             api.getProductBySlug(slug).catch(() => {});
@@ -121,13 +126,14 @@ const AppClient = () => {
                         <Route path="/categories/:slug" element={<CategoryPage />} />
                         
                         {/* Panier */}
-                        <Route path="/cart" element={<CartPage />} />
-
-                        {/* Checkout */}
-                        <Route path="/checkout" element={<CheckoutPage />} />
-                        
-                        {/* Page de succès de paiement */}
-                        <Route path="/payment/success" element={<PaymentSuccessPage />} />
+                        <Route path="/cart" element={
+                            <div className="min-h-screen flex items-center justify-center">
+                                <div className="text-center">
+                                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Page Panier</h1>
+                                    <p className="text-gray-600">En cours de développement</p>
+                                </div>
+                            </div>
+                        } />
                         
                         {/* Favoris */}
                         <Route path="/wishlist" element={
@@ -150,7 +156,14 @@ const AppClient = () => {
                         } />
                         
                         {/* Profil */}
-                        <Route path="/profile" element={<ProfilePage />} />
+                        <Route path="/profile" element={
+                            <div className="min-h-screen flex items-center justify-center">
+                                <div className="text-center">
+                                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Page Profil</h1>
+                                    <p className="text-gray-600">En cours de développement</p>
+                                </div>
+                            </div>
+                        } />
                         
                         {/* Promotions */}
                         <Route path="/promotions" element={
@@ -162,7 +175,7 @@ const AppClient = () => {
                             </div>
                         } />
                         
-                        {/* Redirection par défaut */}
+                        {/* Toutes les autres routes redirigent vers la page d'accueil */}
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </Suspense>
@@ -171,9 +184,11 @@ const AppClient = () => {
     );
 };
 
+// Montage de l'application avec optimisations
 const container = document.getElementById("client-app");
 
 if (container) {
+    // Éviter les doubles montages en développement
     if (!container._reactRootContainer) {
         const root = createRoot(container);
         container._reactRootContainer = root;

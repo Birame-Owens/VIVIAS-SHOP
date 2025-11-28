@@ -4,7 +4,6 @@ namespace App\Services\Client;
 use App\Models\Client;
 use App\Models\User;
 use App\Models\MesureClient;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -12,92 +11,75 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthService
 {
-   public function register(array $data): array
-{
-    try {
-        // Vérifier si l'email existe déjà
-        if (User::where('email', $data['email'])->exists()) {
-            return ['success' => false, 'message' => 'Cet email est déjà utilisé'];
+    public function register(array $data): array
+    {
+        try {
+            // Vérifier si l'email existe déjà
+            if (User::where('email', $data['email'])->exists()) {
+                return ['success' => false, 'message' => 'Cet email est déjà utilisé'];
+            }
+
+            // Vérifier si le téléphone existe déjà
+            if (Client::where('telephone', $data['telephone'])->exists()) {
+                return ['success' => false, 'message' => 'Ce numéro de téléphone est déjà utilisé'];
+            }
+
+            DB::beginTransaction();
+
+            // Créer l'utilisateur
+            $user = User::create([
+                'name' => $data['prenom'] . ' ' . $data['nom'],
+                'email' => $data['email'],
+                'password' => Hash::make($data['password']),
+                'role' => 'client',
+                'statut' => 'actif'
+            ]);
+
+            // Créer le profil client
+            $client = Client::create([
+                'nom' => $data['nom'],
+                'prenom' => $data['prenom'],
+                'telephone' => $data['telephone'],
+                'email' => $data['email'],
+                'ville' => $data['ville'] ?? 'Dakar',
+                'adresse_principale' => $data['adresse'] ?? null,
+                'user_id' => $user->id,
+                'type_client' => 'particulier',
+                'accepte_whatsapp' => $data['accepte_whatsapp'] ?? true,
+                'accepte_email' => $data['accepte_email'] ?? true,
+                'accepte_promotions' => $data['accepte_promotions'] ?? true
+            ]);
+
+            // Générer le token
+            $token = $user->createToken('vivias_client_token')->plainTextToken;
+
+            DB::commit();
+
+            return [
+                'success' => true,
+                'message' => 'Inscription réussie',
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email
+                    ],
+                    'client' => [
+                        'id' => $client->id,
+                        'nom' => $client->nom,
+                        'prenom' => $client->prenom,
+                        'telephone' => $client->telephone,
+                        'ville' => $client->ville
+                    ],
+                    'token' => $token
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            return ['success' => false, 'message' => 'Erreur lors de l\'inscription'];
         }
-
-        // Vérifier si le téléphone existe déjà
-        if (Client::where('telephone', $data['telephone'])->exists()) {
-            return ['success' => false, 'message' => 'Ce numéro de téléphone est déjà utilisé'];
-        }
-
-        DB::beginTransaction();
-
-        // Créer l'utilisateur
-        $user = User::create([
-            'name' => $data['prenom'] . ' ' . $data['nom'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-            'role' => 'client',
-            'statut' => 'actif',
-            'nombre_connexions' => 0  // ⚠️ Ajout explicite
-        ]);
-
-        // Créer le profil client
-        $client = Client::create([
-            'nom' => $data['nom'],
-            'prenom' => $data['prenom'],
-            'telephone' => $data['telephone'],
-            'email' => $data['email'],
-            'ville' => $data['ville'] ?? 'Dakar',
-            'adresse_principale' => $data['adresse'] ?? null,
-            'user_id' => $user->id,
-            'type_client' => 'regulier',
-            'accepte_whatsapp' => $data['accepte_whatsapp'] ?? true,
-            'accepte_email' => $data['accepte_email'] ?? true,
-            'accepte_promotions' => $data['accepte_promotions'] ?? true,
-            'nombre_commandes' => 0,      // ⚠️ Ajout explicite
-            'total_depense' => 0,          // ⚠️ Ajout explicite
-            'panier_moyen' => 0,           // ⚠️ Ajout explicite
-            'score_fidelite' => 0,         // ⚠️ Ajout explicite
-            'priorite' => 'normale'        // ⚠️ Ajout explicite
-        ]);
-
-        // Générer le token
-        $token = $user->createToken('vivias_client_token')->plainTextToken;
-
-        DB::commit();
-
-        return [
-            'success' => true,
-            'message' => 'Inscription réussie',
-            'data' => [
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email
-                ],
-                'client' => [
-                    'id' => $client->id,
-                    'nom' => $client->nom,
-                    'prenom' => $client->prenom,
-                    'telephone' => $client->telephone,
-                    'ville' => $client->ville
-                ],
-                'token' => $token
-            ]
-        ];
-
-    } catch (\Exception $e) {
-        DB::rollback();
-        \Log::error('Erreur inscription client', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(), // ⚠️ Ajout du trace complet
-            'data' => $data
-        ]);
-        
-        // ⚠️ EN DÉVELOPPEMENT SEULEMENT - Retourner l'erreur réelle
-        if (config('app.debug')) {
-            return ['success' => false, 'message' => $e->getMessage()];
-        }
-        
-        return ['success' => false, 'message' => 'Erreur lors de l\'inscription'];
     }
-}
 
     public function login(string $email, string $password): array
     {

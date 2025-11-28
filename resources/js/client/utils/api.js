@@ -1,16 +1,16 @@
-// resources/js/client/utils/api.js - VERSION FINALE AVEC AUTH SANCTUM
+// resources/js/client/utils/api.js - VERSION OPTIMISÉE
 
 // =================== SYSTÈME DE CACHE ===================
 class CacheManager {
   constructor() {
     this.cache = new Map();
     this.durations = {
-      config: 30 * 60 * 1000,
-      categories: 10 * 60 * 1000,
-      product: 5 * 60 * 1000,
-      home: 5 * 60 * 1000,
-      search: 2 * 60 * 1000,
-      default: 3 * 60 * 1000
+      config: 30 * 60 * 1000,      // 30 min
+      categories: 10 * 60 * 1000,  // 10 min
+      product: 5 * 60 * 1000,      // 5 min
+      home: 5 * 60 * 1000,         // 5 min
+      search: 2 * 60 * 1000,       // 2 min
+      default: 3 * 60 * 1000       // 3 min
     };
   }
 
@@ -57,27 +57,16 @@ class CacheManager {
 
 const cache = new CacheManager();
 
+// =================== HELPERS ===================
+const getCsrfToken = () => {
+  return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+};
+
 // =================== API SERVICE ===================
 class ApiService {
   constructor(baseURL = '/api/client') {
     this.baseURL = baseURL;
-    this.pendingRequests = new Map();
-  }
-
-  getToken() {
-    return localStorage.getItem('auth_token');
-  }
-
-  setToken(token) {
-    localStorage.setItem('auth_token', token);
-  }
-
-  removeToken() {
-    localStorage.removeItem('auth_token');
-  }
-
-  isAuthenticated() {
-    return !!this.getToken();
+    this.pendingRequests = new Map(); // Éviter requêtes en double
   }
 
   async request(endpoint, options = {}) {
@@ -85,18 +74,17 @@ class ApiService {
     const method = options.method || 'GET';
     const requestKey = `${method}_${url}_${JSON.stringify(options.body || '')}`;
 
+    // Si requête identique en cours, retourner la même promesse
     if (this.pendingRequests.has(requestKey)) {
       return this.pendingRequests.get(requestKey);
     }
-
-    const token = this.getToken();
 
     const config = {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': getCsrfToken(),
         'Accept': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
         ...options.headers,
       },
       credentials: 'include',
@@ -105,15 +93,6 @@ class ApiService {
     const requestPromise = fetch(url, config)
       .then(async (response) => {
         const data = await response.json();
-        
-        if (response.status === 401 && token) {
-          this.removeToken();
-          if (window.location.pathname !== '/' && window.location.pathname !== '/cart') {
-            window.location.href = '/';
-          }
-          throw new Error('Session expirée');
-        }
-        
         if (!response.ok) {
           throw new Error(data.message || 'Erreur API');
         }
@@ -131,6 +110,7 @@ class ApiService {
     return requestPromise;
   }
 
+  // Méthode avec cache
   async cachedRequest(cacheType, endpoint, cacheParams = '', options = {}) {
     const cached = cache.get(cacheType, cacheParams);
     if (cached) return cached;
@@ -140,10 +120,12 @@ class ApiService {
     return data;
   }
 
+  // =================== CONFIGURATION ===================
   getConfig() {
     return this.cachedRequest('config', '/config');
   }
 
+  // =================== PAGE D'ACCUEIL ===================
   getHomeData() {
     return this.cachedRequest('home', '/home');
   }
@@ -176,6 +158,7 @@ class ApiService {
     return this.cachedRequest('home', '/testimonials', 'testimonials');
   }
 
+  // =================== NAVIGATION ===================
   getMainMenu() {
     return this.cachedRequest('categories', '/navigation/menu', 'menu');
   }
@@ -184,6 +167,7 @@ class ApiService {
     return this.cachedRequest('categories', `/navigation/categories/${slug}/preview`, slug);
   }
 
+  // =================== PRODUITS ===================
   getProducts(filters = {}) {
     const params = new URLSearchParams(filters).toString();
     return this.request(`/products?${params}`);
@@ -222,9 +206,9 @@ class ApiService {
   }
 
   getProductPageData(slug) {
-    return this.cachedRequest('product', `/products/${slug}/page-data`, slug);
-  }
-
+  return this.cachedRequest('product', `/products/${slug}/page-data`, slug);
+}
+  // =================== CATÉGORIES ===================
   getCategories() {
     return this.cachedRequest('categories', '/categories');
   }
@@ -234,11 +218,13 @@ class ApiService {
   }
 
   getCategoryProducts(slug, filters = {}) {
-    const params = new URLSearchParams(filters).toString();
-    return this.request(`/categories/${slug}/products?${params}`);
-  }
+  const params = new URLSearchParams(filters).toString();
+  // Ne PAS utiliser cachedRequest - toujours faire une requête fraîche
+  return this.request(`/categories/${slug}/products?${params}`);
+}
 
-  search(query, filters = {}) {
+  // =================== RECHERCHE ===================
+  search(query, filters = {}) {a
     const params = new URLSearchParams({ q: query, ...filters }).toString();
     return this.request(`/search?${params}`);
   }
@@ -256,7 +242,7 @@ class ApiService {
     return this.cachedRequest('search', `/search/quick?q=${encodeURIComponent(query)}`, normalized);
   }
 
-  // =================== PANIER ===================
+  // =================== PANIER (Pas de cache) ===================
   getCart() {
     return this.request('/cart');
   }
@@ -314,7 +300,7 @@ class ApiService {
     });
   }
 
-  // =================== WISHLIST ===================
+  // =================== FAVORIS (Pas de cache) ===================
   getWishlist() {
     return this.request('/wishlist');
   }
@@ -353,30 +339,18 @@ class ApiService {
   }
 
   // =================== AUTHENTIFICATION ===================
-  async register(data) {
-    const response = await this.request('/auth/register', {
+  register(data) {
+    return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    
-    if (response.success && response.data.token) {
-      this.setToken(response.data.token);
-    }
-    
-    return response;
   }
 
-  async login(email, password) {
-    const response = await this.request('/auth/login', {
+  login(email, password) {
+    return this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    
-    if (response.success && response.data.token) {
-      this.setToken(response.data.token);
-    }
-    
-    return response;
   }
 
   guestCheckout(data) {
@@ -386,13 +360,10 @@ class ApiService {
     });
   }
 
-  async logout() {
-    try {
-      await this.request('/auth/logout', { method: 'POST' });
-    } finally {
-      this.removeToken();
-    }
-    return { success: true };
+  logout() {
+    return this.request('/auth/logout', {
+      method: 'POST',
+    });
   }
 
   getProfile() {
@@ -405,9 +376,6 @@ class ApiService {
       body: JSON.stringify(data),
     });
   }
-  getOrders() {
-    return this.request('/auth/orders');
-}
 
   getMeasurements() {
     return this.request('/auth/measurements');
@@ -420,27 +388,6 @@ class ApiService {
     });
   }
 
-  // =================== CHECKOUT & PAIEMENT ===================
-  
-  /**
-   * Vérifier le statut d'un paiement Stripe après redirection
-   */
-  async verifyStripePayment(sessionId) {
-    try {
-      const response = await this.request(`/payment/verify-stripe?session_id=${sessionId}`);
-      
-      // Si le paiement est validé, invalider le cache du panier
-      if (response.success && response.data?.paiement?.statut === 'valide') {
-        this.invalidateCache('cart');
-      }
-      
-      return response;
-    } catch (error) {
-      console.error('Erreur vérification Stripe:', error);
-      throw error;
-    }
-  }
-
   // =================== NEWSLETTER ===================
   subscribeNewsletter(email, data = {}) {
     return this.request('/newsletter/subscribe', {
@@ -449,7 +396,7 @@ class ApiService {
     });
   }
 
-  // =================== CACHE ===================
+  // =================== UTILITAIRES ===================
   clearCache() {
     cache.clear();
   }
@@ -459,6 +406,7 @@ class ApiService {
   }
 }
 
+// Instance singleton
 const api = new ApiService();
 
 export default api;

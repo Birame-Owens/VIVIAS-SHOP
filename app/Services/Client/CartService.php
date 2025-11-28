@@ -7,7 +7,6 @@ namespace App\Services\Client;
 
 use App\Models\Produit;
 use App\Models\Promotion;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 
 class CartService
