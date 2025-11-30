@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { 
   ShoppingBag, Heart, Phone, ArrowRight, 
-  Check, Loader2, MessageCircle, ChevronRight
+  Check, Loader2, MessageCircle, ChevronRight,
+  Mail, MapPin
 } from 'lucide-react';
 import api from '../utils/api';
 

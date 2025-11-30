@@ -124,13 +124,20 @@ const ProductDetailPage = () => {
 
   const handleAddToWishlist = async () => {
     try {
+      console.log('🤍 Ajout wishlist - product_id:', product.id);
       const response = await api.addToWishlist(product.id);
+      console.log('🤍 Wishlist response:', response);
       if (response.success) {
         setWishlistCount(prev => prev + 1);
         setIsInWishlist(true);
-        alert('Ajouté aux favoris');
+        alert('✅ Ajouté aux favoris');
+      } else {
+        alert(response.message || 'Erreur lors de l\'ajout');
       }
-    } catch (error) { console.error(error); }
+    } catch (error) {
+      console.error('❌ Wishlist error:', error);
+      alert('Erreur lors de l\'ajout aux favoris');
+    }
   };
 
   const handleWhatsAppOrder = (productData = null) => {
@@ -271,7 +278,12 @@ const ProductDetailPage = () => {
                     <Heart className="w-5 h-5" />
                   </button>
                   <button onClick={() => {
-                     if (navigator.share) navigator.share({ title: product.nom, url: window.location.href });
+                     if (navigator.share) {
+                       navigator.share({ title: product.nom, url: window.location.href }).catch(err => console.log('Partage annulé'));
+                     } else {
+                       navigator.clipboard.writeText(window.location.href);
+                       alert('✅ Lien copié dans le presse-papiers!');
+                     }
                   }} className="p-3 rounded-full border border-neutral-200 hover:border-black transition-colors text-black">
                     <Share2 className="w-5 h-5" />
                   </button>

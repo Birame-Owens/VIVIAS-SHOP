@@ -13,16 +13,17 @@ const ShopPage = () => {
     const initData = async () => {
       try {
         const [categoriesRes, cartRes, wishlistRes] = await Promise.all([
-          api.get('/client/categories'),
+          api.getCategories(),
           api.getCartCount(),
           api.getWishlistCount()
         ]);
 
-        if (categoriesRes.success) setCategories(categoriesRes.data.categories || []);
+        console.log('📦 ShopPage - Réponse catégories:', categoriesRes);
+        if (categoriesRes.success) setCategories(categoriesRes.data || []);
         if (cartRes.success) setCartCount(cartRes.data.count || 0);
         if (wishlistRes.success) setWishlistCount(wishlistRes.data.count || 0);
       } catch (err) {
-        console.error("Erreur API:", err);
+        console.error("❌ Erreur API:", err);
       } finally {
         setLoading(false);
       }
