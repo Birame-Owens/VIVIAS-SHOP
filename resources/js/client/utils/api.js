@@ -95,14 +95,8 @@ class ApiService {
   }
 
   async request(endpoint, options = {}) {
-    // ✅ CRITIQUE: Initialiser CSRF pour TOUTES les requêtes (même GET)
-    // pour garantir que la même session est utilisée partout
-    if (!this.csrfInitialized) {
-      await this.initCsrf();
-    }
-
     const url = `${this.baseURL}${endpoint}`;
-    const method = options.method || 'GET'; // ✅ Définir method ici
+    const method = options.method || 'GET';
     const requestKey = `${method}_${url}_${JSON.stringify(options.body || '')}`;
 
     // Si requête identique en cours, retourner la même promesse
@@ -113,33 +107,59 @@ class ApiService {
     // Récupérer le token d'authentification
     const token = localStorage.getItem('auth_token');
 
+    // ✅ CRITIQUE: Initialiser CSRF seulement si pas de token Bearer
+    // Quand on a un Bearer token, Sanctum n'utilise pas la session/CSRF
+    if (!token && !this.csrfInitialized) {
+      await this.initCsrf();
+    }
+
     const config = {
       ...options,
+      method,
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': getCsrfToken(),
         'Accept': 'application/json',
+        // CSRF token seulement pour les sessions (pas de Bearer token)
+        ...(!token ? { 'X-CSRF-TOKEN': getCsrfToken() || '' } : {}),
+        // Bearer token pour authentification API
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...options.headers,
       },
-      credentials: 'include',
+      credentials: 'include', // Important pour les cookies de session
     };
 
     const requestPromise = fetch(url, config)
       .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) {
-          // Si erreur 419 CSRF, réinitialiser et réessayer
-          if (response.status === 419) {
-            this.csrfInitialized = false;
-            throw new Error('CSRF token mismatch.');
+        const contentType = response.headers.get('content-type');
+        
+        // Vérifier si c'est du JSON
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          
+          if (!response.ok) {
+            // Si erreur 419 CSRF et pas de token, réinitialiser
+            if (response.status === 419 && !token) {
+              this.csrfInitialized = false;
+              throw new Error('CSRF token mismatch.');
+            }
+            // Si 401 et token présent, c'est expiré
+            if (response.status === 401 && token) {
+              localStorage.removeItem('auth_token');
+              localStorage.removeItem('user');
+              // Ne pas recharger automatiquement pour éviter les boucles
+            }
+            throw new Error(data.message || 'Erreur API');
           }
-          throw new Error(data.message || 'Erreur API');
+          return data;
+        } else {
+          // Si pas JSON, c'est probablement une erreur HTML (500)
+          const text = await response.text();
+          console.error('❌ Response non-JSON:', text.substring(0, 200));
+          throw new Error('Erreur serveur - réponse invalide');
         }
-        return data;
       })
       .catch((error) => {
-        console.error('API Error:', error);
+        console.error('🔴 API Error:', error);
         throw error;
       })
       .finally(() => {
