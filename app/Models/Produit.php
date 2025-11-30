@@ -118,6 +118,48 @@ class Produit extends Model
 		'tags'
 	];
 
+	protected $appends = ['image', 'image_url'];
+
+	public function getImageAttribute()
+	{
+		// Si la relation est déjà chargée, utiliser la collection
+		if ($this->relationLoaded('images_produits')) {
+			$premiereImage = $this->images_produits
+				->where('est_visible', true)
+				->sortBy('ordre_affichage')
+				->first();
+			
+			if ($premiereImage) {
+				return $premiereImage->url;
+			}
+		} else {
+			// Sinon faire une requête
+			$premiereImage = $this->images_produits()
+				->where('est_visible', true)
+				->orderBy('ordre_affichage')
+				->first();
+			
+			if ($premiereImage) {
+				return $premiereImage->url;
+			}
+		}
+		
+		// Fallback sur image_principale
+		if ($this->image_principale) {
+			return str_starts_with($this->image_principale, 'http') 
+				? $this->image_principale 
+				: asset('storage/' . $this->image_principale);
+		}
+		
+		// Image par défaut si aucune image disponible
+		return asset('images/placeholder-product.jpg');
+	}
+
+	public function getImageUrlAttribute()
+	{
+		return $this->image;
+	}
+
 	public function category()
 	{
 		return $this->belongsTo(Category::class, 'categorie_id');

@@ -17,16 +17,17 @@ class AdminAuthenticated
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Vérifier si l'utilisateur est connecté
-        if (!Auth::check()) {
+        // Vérifier si l'utilisateur est connecté via Sanctum
+        $user = $request->user();
+        
+        if (!$user) {
             return $this->unauthorized($request, 'Vous devez être connecté pour accéder à cette page.');
         }
 
-        $user = Auth::user();
-
         // Vérifier si l'utilisateur est actif
         if ($user->statut !== 'actif') {
-            Auth::logout();
+            // Révoquer les tokens de l'utilisateur
+            $user->tokens()->delete();
             return $this->unauthorized($request, 'Votre compte a été suspendu. Contactez l\'administrateur.');
         }
 
@@ -34,12 +35,6 @@ class AdminAuthenticated
         if ($user->role !== 'admin') {
             return $this->forbidden($request, 'Accès refusé. Vous n\'avez pas les permissions administrateur.');
         }
-
-        // Mettre à jour la dernière connexion
-        $user->update([
-            'derniere_connexion' => now(),
-            'nombre_connexions' => $user->nombre_connexions + 1
-        ]);
 
         return $next($request);
     }

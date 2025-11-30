@@ -1,0 +1,312 @@
+/* ⚡ OPTIMISATIONS CSS - PERFORMANCE */
+
+/* ============================================
+   1️⃣ ANIMATIONS PERFORMANCE
+   ============================================ */
+
+/* ✅ Utiliser transform + opacity pour GPU acceleration */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+@keyframes pulse-soft {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slideInLeft {
+    animation: slideInLeft 0.4s ease-out;
+}
+
+.animate-shimmer {
+    background: linear-gradient(
+        90deg,
+        #f0f0f0 -1000px,
+        #e0e0e0 0,
+        #f0f0f0 1000px
+    );
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+}
+
+.animate-pulse-soft {
+    animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ============================================
+   2️⃣ LAZY LOADING SKELETON
+   ============================================ */
+
+.skeleton {
+    @apply bg-gray-200 rounded animate-pulse;
+}
+
+.skeleton-text {
+    @apply h-4 bg-gray-200 rounded animate-pulse;
+}
+
+.skeleton-image {
+    @apply w-full aspect-square bg-gray-200 rounded animate-pulse;
+}
+
+/* ============================================
+   3️⃣ IMAGE LAZY LOADING
+   ============================================ */
+
+img[loading="lazy"] {
+    background-color: #f0f0f0;
+}
+
+/* Blur in pour images lazy-loaded */
+img.lazy-fade {
+    filter: blur(5px);
+    animation: lazy-fade 0.3s ease-out forwards;
+}
+
+@keyframes lazy-fade {
+    to {
+        filter: blur(0);
+    }
+}
+
+/* ============================================
+   4️⃣ WILL-CHANGE OPTIMIZATIONS
+   ============================================ */
+
+/* Hover animations (GPU accelerated) */
+button,
+a,
+.interactive {
+    will-change: transform, opacity;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                opacity 0.2s ease;
+}
+
+button:hover,
+a:hover {
+    transform: translateY(-2px);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+/* Modal transitions */
+.modal-enter {
+    animation: slideInLeft 0.3s ease-out;
+}
+
+.modal-exit {
+    animation: slideInLeft 0.3s ease-out reverse;
+}
+
+/* ============================================
+   5️⃣ SCROLLING PERFORMANCE
+   ============================================ */
+
+/* Passive listeners for scroll */
+.scroll-container {
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Smooth scroll (GPU accelerated) */
+html {
+    scroll-behavior: smooth;
+}
+
+/* ============================================
+   6️⃣ CONTAIN & CONTENT-VISIBILITY
+   ============================================ */
+
+/* Isoler context for better painting */
+.card,
+.product-item {
+    contain: layout style paint;
+    content-visibility: auto;
+}
+
+/* ============================================
+   7️⃣ RESPONSIVE IMAGES
+   ============================================ */
+
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+picture {
+    display: block;
+}
+
+/* ============================================
+   8️⃣ FONT OPTIMIZATION
+   ============================================ */
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap; /* ✅ Swap pour éviter FOUT */
+    src: url('/fonts/inter-400.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('/fonts/inter-600.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('/fonts/inter-700.woff2') format('woff2');
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ============================================
+   9️⃣ GRID & FLEXBOX OPTIMIZATIONS
+   ============================================ */
+
+/* Auto-fit pour responsive sans media queries */
+.grid-auto {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.grid-auto-sm {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+/* ============================================
+   🔟 CORE WEB VITALS OPTIMIZATIONS
+   ============================================ */
+
+/* CLS (Cumulative Layout Shift) - réserver espace */
+.image-container {
+    position: relative;
+    width: 100%;
+    padding-bottom: 100%; /* Aspect ratio 1:1 */
+}
+
+.image-container img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* FID (First Input Delay) - hitbox suffisant */
+button,
+a,
+input {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* LCP (Largest Contentful Paint) */
+.hero-image,
+.main-image {
+    will-change: background-image;
+}
+
+/* ============================================
+   1️⃣1️⃣ DARK MODE (optionnel)
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+    }
+    
+    body {
+        background-color: #0f0f0f;
+        color: #e0e0e0;
+    }
+}
+
+/* ============================================
+   1️⃣2️⃣ PREFERS REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ============================================
+   1️⃣3️⃣ HIGH DPI DISPLAYS
+   ============================================ */
+
+@media (-webkit-min-device-pixel-ratio: 2),
+       (min-resolution: 192dpi) {
+    /* Bords nets sur les écrans haute densité */
+    * {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+}
+
+/* ============================================
+   1️⃣4️⃣ PRINT STYLES (exclure du rendering)
+   ============================================ */
+
+@media print {
+    .no-print,
+    .navigation,
+    .footer {
+        display: none !important;
+    }
+}

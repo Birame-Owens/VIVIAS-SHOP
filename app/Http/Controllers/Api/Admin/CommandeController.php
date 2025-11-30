@@ -178,6 +178,7 @@ class CommandeController extends Controller
             $commande->load([
                 'client.mesures',
                 'articles_commandes.produit.category',
+                'articles_commandes.produit.images_produits', // Charger les images
                 'paiements' => function($query) {
                     $query->where('statut', 'valide');
                 }
@@ -338,7 +339,7 @@ class CommandeController extends Controller
                         'tailles_disponibles' => $produit->tailles_disponibles,
                         'couleurs_disponibles' => $produit->couleurs_disponibles,
                         'categorie' => $produit->category ? $produit->category->nom : null,
-                        'image' => $produit->image_principale
+                        'image' => $produit->image // Utilise l'accessor
                     ];
                 });
 
@@ -506,7 +507,7 @@ class CommandeController extends Controller
                     'produit' => [
                         'id' => $article->produit->id,
                         'nom' => $article->produit->nom,
-                        'image' => $article->produit->image_principale,
+                        'image' => $article->produit->image, // Utilise l'accessor qui gère le fallback
                         'categorie' => $article->produit->category->nom ?? null,
                         'fait_sur_mesure' => $article->produit->fait_sur_mesure
                     ],

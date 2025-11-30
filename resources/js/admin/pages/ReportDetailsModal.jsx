@@ -724,164 +724,6 @@ const renderFinancierReport = () => {
         );
     };
 
-    const renderAnalyticsReport = () => {
-    const { visiteurs_uniques, pages_vues, taux_conversion, sources_trafic, evolution_quotidienne } = reportData;
-    
-    return (
-        <div className="space-y-6">
-            {/* KPIs Web */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-teal-50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-teal-600 font-medium">Visiteurs uniques</p>
-                            <p className="text-2xl font-bold text-teal-700">{formatNumber(visiteurs_uniques)}</p>
-                        </div>
-                        <Users className="w-8 h-8 text-teal-500" />
-                    </div>
-                </div>
-                
-                <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-blue-600 font-medium">Pages vues</p>
-                            <p className="text-2xl font-bold text-blue-700">{formatNumber(pages_vues)}</p>
-                        </div>
-                        <Eye className="w-8 h-8 text-blue-500" />
-                    </div>
-                </div>
-                
-                <div className="bg-green-50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-green-600 font-medium">Taux conversion</p>
-                            <p className="text-2xl font-bold text-green-700">{taux_conversion}%</p>
-                        </div>
-                        <TrendingUp className="w-8 h-8 text-green-500" />
-                    </div>
-                </div>
-            </div>
-            
-            {/* Sources de trafic */}
-            <div className="bg-white border rounded-lg">
-                <div className="px-4 py-3 border-b">
-                    <h4 className="text-lg font-semibold">Sources de trafic</h4>
-                </div>
-                <div className="p-4 space-y-3">
-                    {sources_trafic?.map((source, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div className="font-medium">{source.source}</div>
-                            <div className="text-right">
-                                <div className="font-medium">{formatNumber(source.visiteurs)} visiteurs</div>
-                                <div className="text-sm text-gray-600">{source.pourcentage}%</div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const renderPerformanceProduitsReport = () => {
-    const { produits_performance, analyse_commandes, analyse_paniers } = reportData;
-
-    return (
-        <div className="space-y-6">
-            {/* KPIs Commandes */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-blue-600 font-medium">Total commandes</p>
-                            <p className="text-2xl font-bold text-blue-700">
-                                {formatNumber(analyse_commandes?.total_commandes || 0)}
-                            </p>
-                        </div>
-                        <ShoppingCart className="w-8 h-8 text-blue-500" />
-                    </div>
-                </div>
-
-                <div className="bg-green-50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-green-600 font-medium">Commandes validées</p>
-                            <p className="text-2xl font-bold text-green-700">
-                                {formatNumber(analyse_commandes?.commandes_validees || 0)}
-                            </p>
-                        </div>
-                        <TrendingUp className="w-8 h-8 text-green-500" />
-                    </div>
-                </div>
-
-                <div className="bg-purple-50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-purple-600 font-medium">Taux validation</p>
-                            <p className="text-2xl font-bold text-purple-700">
-                                {analyse_commandes?.taux_validation || 0}%
-                            </p>
-                        </div>
-                        <BarChart3 className="w-8 h-8 text-purple-500" />
-                    </div>
-                </div>
-
-                <div className="bg-orange-50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-orange-600 font-medium">Taux paiement</p>
-                            <p className="text-2xl font-bold text-orange-700">
-                                {analyse_commandes?.taux_paiement || 0}%
-                            </p>
-                        </div>
-                        <DollarSign className="w-8 h-8 text-orange-500" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Section paniers séparée */}
-            {analyse_paniers && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600 font-medium">Total paniers</p>
-                                <p className="text-2xl font-bold text-gray-700">
-                                    {formatNumber(analyse_paniers.total_paniers || 0)}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-green-50 p-4 rounded-lg">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-green-600 font-medium">Paniers → Commandes</p>
-                                <p className="text-2xl font-bold text-green-700">
-                                    {analyse_paniers.taux_transformation || 0}%
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-red-50 p-4 rounded-lg">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-red-600 font-medium">Paniers abandonnés</p>
-                                <p className="text-2xl font-bold text-red-700">
-                                    {analyse_paniers.taux_abandon || 0}%
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Le reste reste identique... */}
-        </div>
-    );
-};
-
     const renderDefaultReport = () => {
         return (
             <div className="text-center py-8">
@@ -902,19 +744,208 @@ const renderPerformanceProduitsReport = () => {
                 return renderProduitsReport();
             case 'clients':
                 return renderClientsReport();
-            case 'stock':
-                return renderStockReport();
             case 'commandes':  
                 return renderCommandesReport();  
             case 'financier':  
                 return renderFinancierReport(); 
-           case 'analytics':
+            case 'analytics':
                 return renderAnalyticsReport();
-           case 'performance-produits':
+            case 'performance-produits':
                 return renderPerformanceProduitsReport();
             default:
                 return renderDefaultReport();
         }
+    };
+
+    // Render Analytics Web Report
+    const renderAnalyticsReport = () => {
+        if (!reportData?.resume) return <div className="text-center py-8 text-gray-500">Aucune donnée analytics disponible</div>;
+        
+        return (
+            <div className="space-y-6">
+                {/* Stats principales */}
+                <div className="grid grid-cols-4 gap-4">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                        <p className="text-xs text-blue-600 font-medium uppercase tracking-wide">Visiteurs Uniques</p>
+                        <p className="text-2xl font-bold text-blue-900 mt-1">{formatNumber(reportData.resume.visiteurs_uniques)}</p>
+                    </div>
+                    <div className="bg-green-50 p-4 rounded-lg">
+                        <p className="text-xs text-green-600 font-medium uppercase tracking-wide">Sessions</p>
+                        <p className="text-2xl font-bold text-green-900 mt-1">{formatNumber(reportData.resume.sessions)}</p>
+                    </div>
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                        <p className="text-xs text-purple-600 font-medium uppercase tracking-wide">Taux de Conversion</p>
+                        <p className="text-2xl font-bold text-purple-900 mt-1">{reportData.resume.taux_conversion}%</p>
+                    </div>
+                    <div className="bg-orange-50 p-4 rounded-lg">
+                        <p className="text-xs text-orange-600 font-medium uppercase tracking-wide">Taux de Rebond</p>
+                        <p className="text-2xl font-bold text-orange-900 mt-1">{reportData.resume.taux_rebond}%</p>
+                    </div>
+                </div>
+
+                {/* Sources de trafic */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <h4 className="text-lg font-semibold mb-4">Sources de Trafic</h4>
+                    <div className="space-y-3">
+                        {reportData.sources_trafic?.map((source, idx) => (
+                            <div key={idx} className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                                    <span className="text-sm font-medium">{source.source}</span>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <span className="text-sm text-gray-600">{formatNumber(source.visiteurs)} visiteurs</span>
+                                    <span className="text-sm font-bold text-blue-600">{source.pourcentage}%</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Pages populaires */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <h4 className="text-lg font-semibold mb-4">Pages les Plus Visitées</h4>
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b">
+                                <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase">Page</th>
+                                <th className="text-right py-2 text-xs font-medium text-gray-500 uppercase">Vues</th>
+                                <th className="text-right py-2 text-xs font-medium text-gray-500 uppercase">Taux de Sortie</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {reportData.pages_populaires?.slice(0, 10).map((page, idx) => (
+                                <tr key={idx} className="border-b">
+                                    <td className="py-3 text-sm">{page.titre}</td>
+                                    <td className="py-3 text-sm text-right font-medium">{formatNumber(page.vues)}</td>
+                                    <td className="py-3 text-sm text-right">{page.taux_sortie}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Appareils */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <h4 className="text-lg font-semibold mb-4">Répartition par Appareil</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                        {reportData.appareils?.map((app, idx) => (
+                            <div key={idx} className="bg-gray-50 p-4 rounded text-center">
+                                <p className="text-lg font-bold">{app.pourcentage}%</p>
+                                <p className="text-xs text-gray-600 mt-1">{app.type}</p>
+                                <p className="text-xs text-gray-500">{formatNumber(app.sessions)} sessions</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Render Performance Produits Report
+    const renderPerformanceProduitsReport = () => {
+        if (!reportData?.stats_globales) return <div className="text-center py-8 text-gray-500">Aucune donnée de performance disponible</div>;
+        
+        return (
+            <div className="space-y-6">
+                {/* Stats globales */}
+                <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-indigo-50 p-4 rounded-lg">
+                        <p className="text-xs text-indigo-600 font-medium uppercase tracking-wide">Produits Actifs</p>
+                        <p className="text-2xl font-bold text-indigo-900 mt-1">{formatNumber(reportData.stats_globales.total_produits_actifs)}</p>
+                    </div>
+                    <div className="bg-green-50 p-4 rounded-lg">
+                        <p className="text-xs text-green-600 font-medium uppercase tracking-wide">Taux d'Activation</p>
+                        <p className="text-2xl font-bold text-green-900 mt-1">{reportData.stats_globales.taux_activation}%</p>
+                    </div>
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                        <p className="text-xs text-purple-600 font-medium uppercase tracking-wide">Conversion Moyenne</p>
+                        <p className="text-2xl font-bold text-purple-900 mt-1">{reportData.stats_globales.taux_conversion_moyen}%</p>
+                    </div>
+                </div>
+
+                {/* Top Ventes */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <h4 className="text-lg font-semibold mb-4">Top 10 - Meilleures Ventes</h4>
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b">
+                                <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase">Produit</th>
+                                <th className="text-right py-2 text-xs font-medium text-gray-500 uppercase">Ventes</th>
+                                <th className="text-right py-2 text-xs font-medium text-gray-500 uppercase">CA</th>
+                                <th className="text-right py-2 text-xs font-medium text-gray-500 uppercase">Conversion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {reportData.top_ventes?.map((prod, idx) => (
+                                <tr key={idx} className="border-b">
+                                    <td className="py-3">
+                                        <div className="text-sm font-medium">{prod.nom}</div>
+                                        <div className="text-xs text-gray-500">{prod.categorie}</div>
+                                    </td>
+                                    <td className="py-3 text-sm text-right font-bold text-green-600">{formatNumber(prod.ventes)}</td>
+                                    <td className="py-3 text-sm text-right">{formatPrice(prod.ca_genere)}</td>
+                                    <td className="py-3 text-sm text-right">{prod.taux_conversion}%</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Top Conversion */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <h4 className="text-lg font-semibold mb-4">Top 10 - Meilleur Taux de Conversion</h4>
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b">
+                                <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase">Produit</th>
+                                <th className="text-right py-2 text-xs font-medium text-gray-500 uppercase">Vues Est.</th>
+                                <th className="text-right py-2 text-xs font-medium text-gray-500 uppercase">Ventes</th>
+                                <th className="text-right py-2 text-xs font-medium text-gray-500 uppercase">Conversion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {reportData.top_conversion?.map((prod, idx) => (
+                                <tr key={idx} className="border-b">
+                                    <td className="py-3 text-sm">{prod.nom}</td>
+                                    <td className="py-3 text-sm text-right">{formatNumber(prod.vues_estimees)}</td>
+                                    <td className="py-3 text-sm text-right">{formatNumber(prod.ventes)}</td>
+                                    <td className="py-3 text-sm text-right font-bold text-purple-600">{prod.taux_conversion}%</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Produits sous-performants */}
+                {reportData.sous_performants?.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-lg p-6">
+                        <h4 className="text-lg font-semibold mb-4 text-orange-600">Produits à Optimiser</h4>
+                        <p className="text-sm text-gray-600 mb-4">Ces produits ont beaucoup de vues mais peu de conversions</p>
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b">
+                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase">Produit</th>
+                                    <th className="text-right py-2 text-xs font-medium text-gray-500 uppercase">Vues Est.</th>
+                                    <th className="text-right py-2 text-xs font-medium text-gray-500 uppercase">Ventes</th>
+                                    <th className="text-right py-2 text-xs font-medium text-gray-500 uppercase">Conversion</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {reportData.sous_performants.map((prod, idx) => (
+                                    <tr key={idx} className="border-b">
+                                        <td className="py-3 text-sm">{prod.nom}</td>
+                                        <td className="py-3 text-sm text-right">{formatNumber(prod.vues_estimees)}</td>
+                                        <td className="py-3 text-sm text-right text-orange-600">{formatNumber(prod.ventes)}</td>
+                                        <td className="py-3 text-sm text-right text-red-600">{prod.taux_conversion}%</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     return (

@@ -18,7 +18,8 @@ import Clients from './pages/Clients'; // ou le bon chemin
 import Promotions from './pages/Promotions';
 import AvisClients from './pages/AvisClients';
 import Reports from './pages/Reports';
-import Sidebar from './components/Sidebar';
+import GroupMessages from './pages/GroupMessages';
+import Sidebar from './components/SidebarNew';
 import './admin.css';
 
 // Layout principal pour les pages admin
@@ -26,10 +27,12 @@ const AdminLayout = ({ children }) => {
     const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
     return (
-        <div className="min-h-screen bg-gray-50 flex">
+        <div className="min-h-screen bg-[#FDFBF7] flex">
             <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
             <div className="flex-1 min-w-0 lg:ml-64">
-                {children}
+                <div className="min-h-screen">
+                    {children}
+                </div>
             </div>
         </div>
     );
@@ -37,17 +40,15 @@ const AdminLayout = ({ children }) => {
 
 // Composant de chargement
 const LoadingScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 flex items-center justify-center">
+    <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center">
         <div className="text-center">
-            <div className="bg-white p-4 rounded-full inline-block mb-4 shadow-2xl">
-                <svg className="w-10 h-10 text-purple-600 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
+            <div className="w-16 h-16 border-2 border-black rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                <span className="text-2xl font-bold">V</span>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">VIVIAS SHOP</h1>
-            <p className="text-blue-100">Chargement de l'administration...</p>
-            <div className="mt-4">
-                <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <h1 className="text-2xl font-light uppercase tracking-[0.2em] mb-2">VIVIAS SHOP</h1>
+            <p className="text-xs text-neutral-400 uppercase tracking-widest">Administration</p>
+            <div className="mt-6">
+                <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto"></div>
             </div>
         </div>
     </div>
@@ -191,6 +192,15 @@ const App = () => {
                                      <AdminLayout>
                                      <Suspense fallback={<LoadingScreen />}>
                                         <Reports />
+                                     </Suspense>
+                                    </AdminLayout>
+                                 </ProtectedRoute>} />
+
+                                <Route  path="/admin/messages"  element={
+                                   <ProtectedRoute>
+                                     <AdminLayout>
+                                     <Suspense fallback={<LoadingScreen />}>
+                                        <GroupMessages />
                                      </Suspense>
                                     </AdminLayout>
                                  </ProtectedRoute>} />

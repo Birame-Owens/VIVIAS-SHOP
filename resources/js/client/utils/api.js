@@ -67,11 +67,42 @@ class ApiService {
   constructor(baseURL = '/api/client') {
     this.baseURL = baseURL;
     this.pendingRequests = new Map(); // Éviter requêtes en double
+    this.csrfInitialized = false;
+    this.csrfInitPromise = null; // Stocker la promesse d'init CSRF
+  }
+
+  // Initialiser le cookie CSRF Sanctum
+  async initCsrf() {
+    if (this.csrfInitialized) return Promise.resolve();
+    
+    // Si init en cours, retourner la même promesse
+    if (this.csrfInitPromise) return this.csrfInitPromise;
+    
+    this.csrfInitPromise = fetch('/sanctum/csrf-cookie', {
+      credentials: 'include',
+    })
+      .then(() => {
+        this.csrfInitialized = true;
+      })
+      .catch((error) => {
+        console.warn('CSRF init failed, will retry on next request:', error);
+      })
+      .finally(() => {
+        this.csrfInitPromise = null;
+      });
+    
+    return this.csrfInitPromise;
   }
 
   async request(endpoint, options = {}) {
+    // ✅ CRITIQUE: Initialiser CSRF pour TOUTES les requêtes (même GET)
+    // pour garantir que la même session est utilisée partout
+    if (!this.csrfInitialized) {
+      await this.initCsrf();
+    }
+
     const url = `${this.baseURL}${endpoint}`;
-    const method = options.method || 'GET';
+    const method = options.method || 'GET'; // ✅ Définir method ici
     const requestKey = `${method}_${url}_${JSON.stringify(options.body || '')}`;
 
     // Si requête identique en cours, retourner la même promesse
@@ -79,12 +110,16 @@ class ApiService {
       return this.pendingRequests.get(requestKey);
     }
 
+    // Récupérer le token d'authentification
+    const token = localStorage.getItem('auth_token');
+
     const config = {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         'X-CSRF-TOKEN': getCsrfToken(),
         'Accept': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...options.headers,
       },
       credentials: 'include',
@@ -94,6 +129,11 @@ class ApiService {
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) {
+          // Si erreur 419 CSRF, réinitialiser et réessayer
+          if (response.status === 419) {
+            this.csrfInitialized = false;
+            throw new Error('CSRF token mismatch.');
+          }
           throw new Error(data.message || 'Erreur API');
         }
         return data;
@@ -118,6 +158,31 @@ class ApiService {
     const data = await this.request(endpoint, options);
     cache.set(cacheType, data, cacheParams);
     return data;
+  }
+
+  // =================== MÉTHODES HTTP ===================
+  get(endpoint, options = {}) {
+    return this.request(endpoint, { ...options, method: 'GET' });
+  }
+
+  post(endpoint, data = {}, options = {}) {
+    return this.request(endpoint, {
+      ...options,
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  put(endpoint, data = {}, options = {}) {
+    return this.request(endpoint, {
+      ...options,
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  delete(endpoint, options = {}) {
+    return this.request(endpoint, { ...options, method: 'DELETE' });
   }
 
   // =================== CONFIGURATION ===================
@@ -170,19 +235,19 @@ class ApiService {
   // =================== PRODUITS ===================
   getProducts(filters = {}) {
     const params = new URLSearchParams(filters).toString();
-    return this.request(`/products?${params}`);
+    return this.request(`/client/products?${params}`);
   }
 
   getTrendingProducts() {
-    return this.cachedRequest('product', '/products/trending', 'trending');
+    return this.cachedRequest('product', '/client/products/trending', 'trending');
   }
 
   getNewArrivalProducts() {
-    return this.cachedRequest('product', '/products/new-arrivals', 'new-arrivals');
+    return this.cachedRequest('product', '/client/products/new-arrivals', 'new-arrivals');
   }
 
   getOnSaleProducts() {
-    return this.cachedRequest('product', '/products/on-sale', 'on-sale');
+    return this.cachedRequest('product', '/client/products/on-sale', 'on-sale');
   }
 
   getProductBySlug(slug) {
@@ -206,8 +271,8 @@ class ApiService {
   }
 
   getProductPageData(slug) {
-  return this.cachedRequest('product', `/products/${slug}/page-data`, slug);
-}
+    return this.cachedRequest('product', `/products/${slug}/page-data`, slug);
+  }
   // =================== CATÉGORIES ===================
   getCategories() {
     return this.cachedRequest('categories', '/categories');
@@ -218,13 +283,13 @@ class ApiService {
   }
 
   getCategoryProducts(slug, filters = {}) {
-  const params = new URLSearchParams(filters).toString();
-  // Ne PAS utiliser cachedRequest - toujours faire une requête fraîche
-  return this.request(`/categories/${slug}/products?${params}`);
-}
+    const params = new URLSearchParams(filters).toString();
+    // Ne PAS utiliser cachedRequest - toujours faire une requête fraîche
+    return this.request(`/categories/${slug}/products?${params}`);
+  }
 
   // =================== RECHERCHE ===================
-  search(query, filters = {}) {a
+  search(query, filters = {}) {
     const params = new URLSearchParams({ q: query, ...filters }).toString();
     return this.request(`/search?${params}`);
   }
@@ -265,6 +330,10 @@ class ApiService {
     return this.request(`/cart/remove/${itemId}`, {
       method: 'DELETE',
     });
+  }
+
+  removeFromCart(itemId) {
+    return this.removeCartItem(itemId);
   }
 
   clearCart() {
@@ -367,14 +436,31 @@ class ApiService {
   }
 
   getProfile() {
-    return this.request('/auth/profile');
+    return this.request('/account/profile');
   }
 
   updateProfile(data) {
-    return this.request('/auth/profile', {
+    return this.request('/account/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  }
+
+  // =================== COMPTE CLIENT ===================
+  getOrders() {
+    return this.request('/account/orders');
+  }
+
+  getOrderDetails(orderNumber) {
+    return this.request(`/account/orders/${orderNumber}`);
+  }
+
+  getInvoices() {
+    return this.request('/account/invoices');
+  }
+
+  downloadInvoice(invoiceId) {
+    return this.request(`/account/invoices/${invoiceId}/download`);
   }
 
   getMeasurements() {
@@ -386,6 +472,35 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  // =================== AUTHENTIFICATION ===================
+  login(credentials) {
+    return this.request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+  }
+
+  register(userData) {
+    return this.request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+  }
+
+  logout() {
+    return this.request('/auth/logout', {
+      method: 'POST',
+    }).finally(() => {
+      // Nettoyer le cache et le token
+      this.clearCache();
+      localStorage.removeItem('auth_token');
+    });
+  }
+
+  getCurrentUser() {
+    return this.request('/auth/user');
   }
 
   // =================== NEWSLETTER ===================

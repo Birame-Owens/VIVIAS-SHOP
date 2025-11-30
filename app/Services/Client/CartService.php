@@ -7,56 +7,181 @@ namespace App\Services\Client;
 
 use App\Models\Produit;
 use App\Models\Promotion;
+use App\Models\ArticlesPanier;
+use App\Models\Panier;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Auth;
 
 class CartService
 {
     private string $sessionKey = 'vivias_cart';
     private string $couponKey = 'vivias_coupon';
 
+    /**
+     * Obtenir l'identifiant unique du panier (user_id ou session_id)
+     */
+    private function getCartIdentifier(): string
+    {
+        // Vérifier utilisateur authentifié (Sanctum ou session web)
+        $user = request()->user() ?? Auth::user();
+        
+        // Si utilisateur authentifié, TOUJOURS utiliser son ID
+        if ($user) {
+            return 'user_' . $user->id;
+        }
+        
+        // Sinon, utiliser l'ID de session Laravel
+        return 'guest_' . session()->getId();
+    }
+
+    /**
+     * Migrer le panier de session vers l'utilisateur lors de la connexion
+     */
+    public function migrateGuestCart(): void
+    {
+        try {
+            $user = request()->user() ?? Auth::user();
+            
+            if (!$user) {
+                return;
+            }
+
+            // ID du panier invité basé sur la session actuelle
+            $guestCartId = 'guest_' . session()->getId();
+            $userCartKey = 'user_' . $user->id;
+
+            // Éviter de migrer si on est déjà sur le panier utilisateur
+            if ($guestCartId === $userCartKey) {
+                return;
+            }
+
+            // Récupérer le panier de l'invité avec articles (éviter N+1)
+            $guestPanier = Panier::where('session_id', $guestCartId)
+                ->with('articles_paniers')
+                ->first();
+            
+            if (!$guestPanier || $guestPanier->articles_paniers->isEmpty()) {
+                return;
+            }
+            
+            // Récupérer ou créer le panier utilisateur
+            $userPanier = Panier::firstOrCreate(
+                ['session_id' => $userCartKey],
+                [
+                    'identifiant' => $userCartKey,
+                    'client_id' => null, // Sera null pour les utilisateurs sans client
+                    'sous_total' => 0,
+                    'nombre_articles' => 0,
+                    'statut' => 'actif',
+                    'derniere_activite' => now()
+                ]
+            );
+            
+            // Migrer les articles
+            foreach ($guestPanier->articles_paniers as $item) {
+                // Vérifier si l'article existe déjà dans le panier utilisateur
+                $existingItem = $userPanier->articles_paniers()
+                    ->where('produit_id', $item->produit_id)
+                    ->where('taille_choisie', $item->taille_choisie)
+                    ->where('couleur_choisie', $item->couleur_choisie)
+                    ->first();
+
+                if ($existingItem) {
+                    // Additionner les quantités
+                    $existingItem->quantite += $item->quantite;
+                    $existingItem->prix_total = $existingItem->prix_unitaire * $existingItem->quantite;
+                    $existingItem->save();
+                    $item->delete();
+                } else {
+                    // Transférer l'article au nouveau panier
+                    $item->panier_id = $userPanier->id;
+                    $item->save();
+                }
+            }
+            
+            // Mettre à jour les totaux et supprimer l'ancien panier
+            $this->updatePanierTotals($userPanier);
+            $guestPanier->delete();
+        } catch (\Exception $e) {
+            // En cas d'erreur, on log mais on ne bloque pas la connexion
+            \Log::warning('Erreur migration panier: ' . $e->getMessage());
+        }
+    }
+
     public function getCart(): array
     {
-        $cartData = Session::get($this->sessionKey, []);
+        $identifier = $this->getCartIdentifier();
+        \Log::info('🛒 CartService@getCart - Identifier', ['identifier' => $identifier]);
+        $cart = $this->fetchCart($identifier);
+        \Log::info('🛒 CartService@getCart - Result', [
+            'items_count' => count($cart['items']),
+            'total' => $cart['total']
+        ]);
+        return $cart;
+    }
+    
+    private function fetchCart(string $identifier): array
+    {
+        // Récupérer le panier
+        $panier = Panier::where('session_id', $identifier)->first();
+        
+        \Log::info('🛒 CartService@fetchCart', [
+            'identifier' => $identifier,
+            'panier_found' => $panier ? true : false,
+            'panier_id' => $panier?->id
+        ]);
+        
+        if (!$panier) {
+            \Log::info('🛒 CartService@fetchCart - Panier vide');
+            return $this->getEmptyCart();
+        }
+        
+        // Récupérer les articles avec les relations
+        $cartItems = $panier->articles_paniers()
+            ->with(['produit.images_produits' => function($q) {
+                $q->where('est_visible', true)->orderBy('ordre_affichage');
+            }])
+            ->get();
+        
         $coupon = Session::get($this->couponKey);
         
-        if (empty($cartData)) {
+        if ($cartItems->isEmpty()) {
             return $this->getEmptyCart();
         }
 
         $items = [];
         $subtotal = 0;
 
-        foreach ($cartData as $itemData) {
-            $product = Produit::with(['images_produits' => function($q) {
-                $q->where('est_principale', true);
-            }])->find($itemData['product_id']);
+        foreach ($cartItems as $cartItem) {
+            $product = $cartItem->produit;
 
             if (!$product || !$product->est_visible) {
+                $cartItem->delete(); // Nettoyer les produits invalides
                 continue;
             }
 
-            $itemTotal = ($product->prix_promo ?: $product->prix) * $itemData['quantity'];
+            $itemTotal = ($product->prix_promo ?: $product->prix) * $cartItem->quantite;
             $subtotal += $itemTotal;
 
+            $prixUnitaire = $product->prix_promo ?: $product->prix;
+
             $items[] = [
-                'id' => $itemData['id'],
+                'id' => $cartItem->id,
                 'product' => [
                     'id' => $product->id,
                     'nom' => $product->nom,
                     'slug' => $product->slug,
                     'prix' => $product->prix,
                     'prix_promo' => $product->prix_promo,
-                    'prix_unitaire' => $product->prix_promo ?: $product->prix,
-                    'image' => $product->images_produits->first() ? 
-                        asset('storage/' . $product->images_produits->first()->chemin_original) : 
-                        '/images/placeholder.jpg',
+                    'image' => $product->image, // Utilise l'accesseur qui gère le fallback
                     'en_stock' => !$product->gestion_stock || $product->stock_disponible > 0
                 ],
-                'quantity' => $itemData['quantity'],
-                'taille' => $itemData['taille'] ?? null,
-                'couleur' => $itemData['couleur'] ?? null,
+                'quantite' => $cartItem->quantite,
+                'prix_unitaire' => $prixUnitaire,
+                'taille' => $cartItem->taille_choisie,
+                'couleur' => $cartItem->couleur_choisie,
                 'prix_total' => $itemTotal,
-                'added_at' => $itemData['added_at'] ?? now()->toISOString()
+                'added_at' => $cartItem->created_at->toISOString()
             ];
         }
 
@@ -94,6 +219,15 @@ class CartService
 
     public function addItem(int $productId, int $quantity = 1, array $options = []): array
     {
+        // Validation sécurité : quantité maximale
+        if ($quantity > 100) {
+            return ['success' => false, 'message' => 'Quantité maximale dépassée (max: 100)'];
+        }
+        
+        if ($quantity < 1) {
+            return ['success' => false, 'message' => 'Quantité invalide'];
+        }
+        
         $product = Produit::find($productId);
         
         if (!$product || !$product->est_visible) {
@@ -104,32 +238,63 @@ class CartService
             return ['success' => false, 'message' => 'Stock insuffisant'];
         }
 
-        $cart = Session::get($this->sessionKey, []);
-        $itemId = $this->generateItemId($productId, $options);
+        $identifier = $this->getCartIdentifier();
+        
+        \Log::info('🛒 CartService@addItem', [
+            'product_id' => $productId,
+            'quantity' => $quantity,
+            'identifier' => $identifier,
+            'options' => $options
+        ]);
+        
+        // Récupérer ou créer le panier
+        $user = request()->user() ?? Auth::user();
+        $panier = Panier::firstOrCreate(
+            ['session_id' => $identifier],
+            [
+                'identifiant' => $identifier,
+                'client_id' => null, // On n'utilise plus client_id, on utilise session_id
+                'sous_total' => 0,
+                'nombre_articles' => 0,
+                'statut' => 'actif',
+                'derniere_activite' => now()
+            ]
+        );
+        
+        // Vérifier si l'article existe déjà
+        $existingItem = ArticlesPanier::where('panier_id', $panier->id)
+            ->where('produit_id', $productId)
+            ->where('taille_choisie', $options['taille'] ?? null)
+            ->where('couleur_choisie', $options['couleur'] ?? null)
+            ->first();
 
-        // Vérifier si l'item existe déjà
-        $existingKey = null;
-        foreach ($cart as $key => $item) {
-            if ($item['id'] === $itemId) {
-                $existingKey = $key;
-                break;
-            }
-        }
-
-        if ($existingKey !== null) {
-            $cart[$existingKey]['quantity'] += $quantity;
+        if ($existingItem) {
+            $existingItem->quantite += $quantity;
+            $existingItem->save();
         } else {
-            $cart[] = [
-                'id' => $itemId,
-                'product_id' => $productId,
-                'quantity' => $quantity,
-                'taille' => $options['taille'] ?? null,
-                'couleur' => $options['couleur'] ?? null,
-                'added_at' => now()->toISOString()
-            ];
+            ArticlesPanier::create([
+                'panier_id' => $panier->id,
+                'produit_id' => $productId,
+                'quantite' => $quantity,
+                'taille_choisie' => $options['taille'] ?? null,
+                'couleur_choisie' => $options['couleur'] ?? null,
+                'prix_unitaire' => $product->prix_promo ?: $product->prix,
+                'prix_total' => ($product->prix_promo ?: $product->prix) * $quantity,
+                'date_ajout' => now(),
+                'nombre_modifications' => 0,
+                'est_reserve' => false
+            ]);
         }
-
-        Session::put($this->sessionKey, $cart);
+        
+        // Mettre à jour le panier
+        $this->updatePanierTotals($panier);
+        
+        \Log::info('✅ CartService@addItem - Produit ajouté', [
+            'panier_id' => $panier->id,
+            'identifier' => $identifier,
+            'nombre_articles' => $panier->nombre_articles,
+            'sous_total' => $panier->sous_total
+        ]);
 
         return ['success' => true, 'message' => 'Produit ajouté au panier'];
     }
@@ -140,38 +305,54 @@ class CartService
             return $this->removeItem($itemId);
         }
 
-        $cart = Session::get($this->sessionKey, []);
-        $updated = false;
-
-        foreach ($cart as &$item) {
-            if ($item['id'] === $itemId) {
-                $item['quantity'] = $quantity;
-                $updated = true;
-                break;
-            }
-        }
-
-        if (!$updated) {
+        $item = ArticlesPanier::find($itemId);
+        
+        if (!$item) {
             return ['success' => false, 'message' => 'Article non trouvé'];
         }
 
-        Session::put($this->sessionKey, $cart);
+        $item->quantite = $quantity;
+        $item->prix_total = $item->prix_unitaire * $quantity;
+        $item->nombre_modifications++;
+        $item->derniere_modification = now();
+        $item->save();
+        
+        // Mettre à jour les totaux du panier
+        $this->updatePanierTotals($item->panier);
+
         return ['success' => true, 'message' => 'Panier mis à jour'];
     }
 
     public function removeItem(string $itemId): array
     {
-        $cart = Session::get($this->sessionKey, []);
-        $cart = array_filter($cart, fn($item) => $item['id'] !== $itemId);
+        $item = ArticlesPanier::find($itemId);
         
-        Session::put($this->sessionKey, array_values($cart));
+        if ($item) {
+            $panier = $item->panier;
+            $item->delete();
+            
+            // Mettre à jour les totaux
+            if ($panier) {
+                $this->updatePanierTotals($panier);
+            }
+        }
+        
         return ['success' => true, 'message' => 'Article retiré du panier'];
     }
 
     public function clearCart(): array
     {
-        Session::forget($this->sessionKey);
+        $identifier = $this->getCartIdentifier();
+        
+        $panier = Panier::where('session_id', $identifier)->first();
+        
+        if ($panier) {
+            $panier->articles_paniers()->delete();
+            $panier->delete();
+        }
+        
         Session::forget($this->couponKey);
+        
         return ['success' => true, 'message' => 'Panier vidé'];
     }
 
@@ -233,7 +414,7 @@ class CartService
         $message .= "*TOTAL: " . number_format($cart['total'], 0, ',', ' ') . " FCFA*\n\n";
         $message .= "Je souhaiterais passer cette commande. Merci ! 🙏";
 
-        $whatsappNumber = config('app.whatsapp_number', '221771397393');
+        $whatsappNumber = config('app.whatsapp_number', '221784661412');
         
         return [
             'success' => true,
@@ -273,6 +454,18 @@ class CartService
             default:
                 return 0;
         }
+    }
+
+    /**
+     * Mettre à jour les totaux du panier
+     */
+    private function updatePanierTotals(Panier $panier): void
+    {
+        $articles = $panier->articles_paniers;
+        $panier->nombre_articles = $articles->sum('quantite');
+        $panier->sous_total = $articles->sum('prix_total');
+        $panier->derniere_activite = now();
+        $panier->save();
     }
 
     private function calculateShipping(float $subtotal): float

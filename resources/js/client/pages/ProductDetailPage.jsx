@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { 
-  Heart, ShoppingCart, Star, Truck, Shield, Award, 
-  MessageCircle, Check, Sparkles, Flame, Share2, Eye, ZoomIn, X
+  Heart, ShoppingBag, Star, Truck, Shield, MessageCircle, 
+  Share2, ChevronRight, Minus, Plus, X, ZoomIn, Check, Loader2
 } from 'lucide-react';
 import api from '../utils/api';
 
@@ -23,25 +23,15 @@ const ProductDetailPage = () => {
 
   const slug = window.location.pathname.split('/').pop();
 
+  // Map des couleurs pour l'affichage visuel
   const colorMap = {
-    'noir': '#000000',
-    'blanc': '#FFFFFF',
-    'rouge': '#EF4444',
-    'bleu': '#3B82F6',
-    'vert': '#10B981',
-    'jaune': '#F59E0B',
-    'rose': '#EC4899',
-    'violet': '#8B5CF6',
-    'orange': '#F97316',
-    'marron': '#92400E',
-    'gris': '#6B7280',
-    'beige': '#D4B896',
-    'doré': 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
-    'argenté': 'linear-gradient(135deg, #C0C0C0 0%, #808080 100%)',
-    'bordeaux': '#800020',
-    'turquoise': '#40E0D0',
-    'navy': '#000080',
-    'kaki': '#8B864E'
+    'noir': '#000000', 'blanc': '#FFFFFF', 'rouge': '#EF4444',
+    'bleu': '#3B82F6', 'vert': '#10B981', 'jaune': '#F59E0B',
+    'rose': '#EC4899', 'violet': '#8B5CF6', 'orange': '#F97316',
+    'marron': '#5D4037', 'gris': '#9CA3AF', 'beige': '#D7CCC8',
+    'doré': 'linear-gradient(135deg, #FFD700 0%, #FDB931 100%)',
+    'argenté': 'linear-gradient(135deg, #E0E0E0 0%, #9E9E9E 100%)',
+    'bordeaux': '#800020', 'turquoise': '#40E0D0', 'navy': '#000080', 'kaki': '#556B2F'
   };
 
   useEffect(() => {
@@ -56,104 +46,80 @@ const ProductDetailPage = () => {
         api.getWishlistCount(),
         api.getCategories()
       ]);
-      
       if (cartRes.success) setCartCount(cartRes.data.count || 0);
       if (wishlistRes.success) setWishlistCount(wishlistRes.data.count || 0);
       if (catRes.success) setCategories(catRes.data || []);
-    } catch (error) {
-      console.error('Erreur navbar:', error);
-    }
+    } catch (error) { console.error(error); }
   };
 
- const loadProductData = async () => {
-  try {
-    setLoading(true);
-    
-    // UNE SEULE requête !
-    const response = await api.getProductPageData(slug);
+  const loadProductData = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getProductPageData(slug);
 
-    if (response.success) {
-      const { product: productData, related_products } = response.data;
-      
-      setProduct(productData);
-      setRelatedProducts(related_products);
-      
-      // Images
-      const gallery = [];
-      if (productData.images && productData.images.length > 0) {
-        productData.images.forEach(img => {
-          gallery.push({ 
-            original: img.original, 
-            thumbnail: img.thumbnail || img.original
+      if (response.success) {
+        const { product: productData, related_products } = response.data;
+        setProduct(productData);
+        setRelatedProducts(related_products);
+        
+        // Gestion Images
+        const gallery = [];
+        if (productData.images?.length > 0) {
+          console.log('📸 Images reçues de l\'API:', productData.images);
+          productData.images.forEach(img => {
+            gallery.push({ 
+              original: img.original || '/assets/images/placeholder.jpg', 
+              thumbnail: img.thumbnail || img.medium || img.original || '/assets/images/placeholder.jpg',
+              alt_text: img.alt_text || productData.nom
+            });
           });
-        });
-      } else if (productData.image) {
-        gallery.push({ 
-          original: productData.image, 
-          thumbnail: productData.image 
-        });
-      }
-      setImages(gallery);
+        } else if (productData.image) {
+          gallery.push({ 
+            original: productData.image, 
+            thumbnail: productData.image,
+            alt_text: productData.nom
+          });
+        } else {
+          // Fallback si aucune image
+          gallery.push({
+            original: '/assets/images/placeholder.jpg',
+            thumbnail: '/assets/images/placeholder.jpg',
+            alt_text: productData.nom
+          });
+        }
+        setImages(gallery);
+        console.log('✅ Images chargées dans l\'état:', gallery); // Debug
 
-      // Pré-sélection
-      if (productData.couleurs_disponibles?.length > 0) {
-        setSelectedColor(productData.couleurs_disponibles[0]);
+        // Pré-sélection
+        if (productData.couleurs_disponibles?.length > 0) setSelectedColor(productData.couleurs_disponibles[0]);
+        if (productData.tailles_disponibles?.length > 0) setSelectedSize(productData.tailles_disponibles[0]);
       }
-      if (productData.tailles_disponibles?.length > 0) {
-        setSelectedSize(productData.tailles_disponibles[0]);
-      }
-    }
-  } catch (error) {
-    console.error('Erreur:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (error) { console.error('Erreur:', error); } 
+    finally { setLoading(false); }
+  };
 
-  const handleNavigation = (type, slug = null, params = {}) => {
+  const handleNavigation = (type, slug = null) => {
     const routes = {
       home: '/',
       category: `/categories/${slug}`,
       product: `/products/${slug}`,
       cart: '/cart',
-      wishlist: '/wishlist',
-      search: `/search?q=${encodeURIComponent(params.q)}`
+      wishlist: '/wishlist'
     };
     if (routes[type]) window.location.href = routes[type];
   };
 
-  const handleSearch = async (query) => {
-    try {
-      const response = await api.quickSearch(query);
-      return response.success ? response.data : { produits: [], categories: [] };
-    } catch (error) {
-      return { produits: [], categories: [] };
-    }
-  };
-
   const handleAddToCart = async () => {
-    if (!selectedColor && product.couleurs_disponibles?.length > 0) {
-      alert('Veuillez sélectionner une couleur');
-      return;
-    }
-    if (!selectedSize && product.tailles_disponibles?.length > 0) {
-      alert('Veuillez sélectionner une taille');
-      return;
-    }
+    if (!selectedColor && product.couleurs_disponibles?.length > 0) return alert('Veuillez sélectionner une couleur');
+    if (!selectedSize && product.tailles_disponibles?.length > 0) return alert('Veuillez sélectionner une taille');
 
     try {
-      const response = await api.addToCart(product.id, quantity, {
-        couleur: selectedColor,
-        taille: selectedSize
-      });
-
+      const response = await api.addToCart(product.id, quantity, { couleur: selectedColor, taille: selectedSize });
       if (response.success) {
         setCartCount(prev => prev + 1);
-        alert('✅ Produit ajouté au panier !');
+        alert('Produit ajouté au panier');
       }
-    } catch (error) {
-      alert('❌ Erreur lors de l\'ajout');
-    }
+    } catch (error) { alert("Erreur lors de l'ajout"); }
   };
 
   const handleAddToWishlist = async () => {
@@ -162,317 +128,220 @@ const ProductDetailPage = () => {
       if (response.success) {
         setWishlistCount(prev => prev + 1);
         setIsInWishlist(true);
-        alert('❤️ Ajouté aux favoris !');
+        alert('Ajouté aux favoris');
       }
-    } catch (error) {
-      console.error('Erreur favoris:', error);
-    }
+    } catch (error) { console.error(error); }
   };
 
-  const handleShare = async () => {
-    const shareData = {
-      title: product.nom,
-      text: `Découvrez ${product.nom} sur VIVIAS SHOP`,
-      url: window.location.href
-    };
-    
+  const handleWhatsAppOrder = (productData = null) => {
+    const phone = "221784661412";
+    const prod = productData || product;
+    const text = `Bonjour VIVIAS, je souhaite commander : ${prod.nom} (Prix: ${prod.prix_affiche?.toLocaleString()} FCFA). ${selectedColor ? 'Couleur: ' + selectedColor : ''} ${selectedSize ? 'Taille: ' + selectedSize : ''} ${!productData ? `Quantité: ${quantity}` : ''}`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleRelatedAddToCart = async (productId) => {
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(window.location.href);
-        alert('✅ Lien copié dans le presse-papier !');
+      const response = await api.addToCart(productId, 1);
+      if (response.success) {
+        setCartCount(prev => prev + 1);
+        alert('Produit ajouté au panier');
       }
-    } catch (err) {
-      console.log('Erreur de partage:', err);
-    }
+    } catch (error) { alert("Erreur lors de l'ajout"); }
   };
 
-  const getColorStyle = (colorName) => {
-    const color = colorName.toLowerCase().trim();
-    return colorMap[color] || colorName;
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-purple-50">
-        <div className="text-center">
-          <div className="w-20 h-20 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
-            <span className="text-white font-bold text-3xl">V</span>
-          </div>
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg font-medium">Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!product) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600 text-lg mb-4">Produit non trouvé</p>
-          <button onClick={() => window.location.href = '/'} className="text-purple-600 hover:underline">
-            Retour à l'accueil
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const reduction = product.prix_promo 
-    ? Math.round(((product.prix - product.prix_promo) / product.prix) * 100)
-    : 0;
+  if (loading) return <div className="h-screen flex items-center justify-center bg-[#FDFBF7]"><Loader2 className="animate-spin w-8 h-8 text-neutral-400"/></div>;
+  if (!product) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50">
-      <Navbar
-        cartCount={cartCount}
-        wishlistCount={wishlistCount}
+    <div className="min-h-screen bg-[#FDFBF7] text-[#1A1A1A] font-sans selection:bg-black selection:text-white">
+      <Navbar 
+        cartCount={cartCount} 
+        wishlistCount={wishlistCount} 
         categories={categories}
-        onNavigate={handleNavigation}
-        onSearch={handleSearch}
+        onNavigate={handleNavigation} 
       />
 
-      <div className="pt-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2 text-sm mb-6">
-            <button onClick={() => handleNavigation('home')} className="text-gray-500 hover:text-purple-600">Accueil</button>
-            <span className="text-gray-400">/</span>
-            {product.category && (
-              <>
-                <button onClick={() => handleNavigation('category', product.category.slug)} className="text-gray-500 hover:text-purple-600">
-                  {product.category.nom}
-                </button>
-                <span className="text-gray-400">/</span>
-              </>
-            )}
-            <span className="text-gray-900 font-medium truncate">{product.nom}</span>
-          </div>
+      {/* BREADCRUMBS Minimaliste */}
+      <div className="max-w-[1800px] mx-auto px-4 md:px-8 py-4 text-[10px] md:text-xs uppercase tracking-widest text-neutral-500 border-b border-neutral-100">
+        <button onClick={() => handleNavigation('home')} className="hover:text-black">Accueil</button>
+        <span className="mx-2">/</span>
+        {product.category && (
+          <>
+            <button onClick={() => handleNavigation('category', product.category.slug)} className="hover:text-black">{product.category.nom}</button>
+            <span className="mx-2">/</span>
+          </>
+        )}
+        <span className="text-black font-medium">{product.nom}</span>
+      </div>
 
-          <div className="grid lg:grid-cols-2 gap-8 bg-white rounded-3xl shadow-2xl overflow-hidden">
-            <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-              <div className="absolute top-6 left-6 z-20 flex flex-col gap-2">
-                {product.prix_promo && (
-                  <div className="bg-red-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse flex items-center gap-1">
-                    <Flame className="h-4 w-4" />
-                    -{reduction}%
-                  </div>
-                )}
-                {product.est_nouveaute && (
-                  <div className="bg-blue-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-1">
-                    <Sparkles className="h-4 w-4" />
-                    NOUVEAU
-                  </div>
-                )}
-                {product.est_populaire && (
-                  <div className="bg-yellow-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-1">
-                    <Flame className="h-4 w-4" />
-                    POPULAIRE
-                  </div>
-                )}
-              </div>
-
-              <div className="absolute top-6 right-6 z-20 flex flex-col gap-2">
-                <button
-                  onClick={handleAddToWishlist}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all transform hover:scale-110 ${
-                    isInWishlist ? 'bg-pink-500 text-white' : 'bg-white text-gray-700 hover:bg-pink-50'
-                  }`}
-                >
-                  <Heart className={`h-6 w-6 ${isInWishlist ? 'fill-current' : ''}`} />
-                </button>
-                <button 
-                  onClick={handleShare}
-                  className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-purple-50 transition-all transform hover:scale-110"
-                >
-                  <Share2 className="h-6 w-6 text-gray-700" />
-                </button>
-                <button 
-                  onClick={() => setShowZoom(true)}
-                  className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-purple-50 transition-all transform hover:scale-110"
-                >
-                  <ZoomIn className="h-6 w-6 text-gray-700" />
-                </button>
-              </div>
-
-              <div className="aspect-square rounded-2xl overflow-hidden mb-4 shadow-xl relative group">
-                <img
-                  src={images[currentImageIndex]?.original || product.image || '/images/placeholder-product.jpg'}
-                  alt={product.nom}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = '/images/placeholder-product.jpg';
-                  }}
-                />
-                {product.stock_disponible < 5 && product.stock_disponible > 0 && (
-                  <div className="absolute bottom-4 left-4 bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-bold">
-                    Plus que {product.stock_disponible} en stock !
-                  </div>
-                )}
-              </div>
-
+      <div className="max-w-[1800px] mx-auto px-4 md:px-8 py-8 md:py-12">
+        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 xl:gap-20">
+          
+          {/* GAUCHE : GALERIE IMAGES (Style Editorial) */}
+          <div className="lg:w-3/5">
+            <div className="flex flex-col-reverse md:flex-row gap-3 md:gap-4">
+              {/* Thumbnails (Horizontal mobile, Vertical desktop) */}
               {images.length > 1 && (
-                <div className="grid grid-cols-4 gap-3">
-                  {images.map((image, idx) => (
+                <div className="flex md:flex-col gap-2 md:gap-3 overflow-x-auto md:overflow-y-auto md:max-h-[700px] scrollbar-hide pb-2 md:pb-0">
+                  {images.map((img, idx) => (
                     <button
                       key={idx}
                       onClick={() => setCurrentImageIndex(idx)}
-                      className={`aspect-square rounded-xl overflow-hidden border-3 transition-all transform hover:scale-105 ${
-                        currentImageIndex === idx 
-                          ? 'border-purple-600 shadow-lg scale-105' 
-                          : 'border-gray-200 hover:border-purple-300'
+                      className={`relative w-16 h-20 md:w-20 md:h-28 flex-shrink-0 border-2 transition-all rounded overflow-hidden ${
+                        currentImageIndex === idx ? 'border-black opacity-100 shadow-md ring-2 ring-black ring-offset-2' : 'border-neutral-200 opacity-60 hover:opacity-100 hover:border-neutral-400'
                       }`}
                     >
-                      <img
-                        src={image.thumbnail || image.original}
-                        alt={`${product.nom} ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = image.original || '/images/placeholder-product.jpg';
-                        }}
-                      />
+                      {img.thumbnail ? (
+                        <img 
+                          src={img.thumbnail} 
+                          alt={img.alt_text || `Image ${idx + 1}`} 
+                          className="w-full h-full object-cover rounded"
+                          onError={(e) => {
+                            console.error('Erreur thumbnail:', img.thumbnail);
+                            e.target.src = '/assets/images/placeholder.jpg';
+                          }}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-neutral-200 flex items-center justify-center">
+                          <span className="text-xs text-neutral-400">#{idx + 1}</span>
+                        </div>
+                      )}
                     </button>
                   ))}
                 </div>
               )}
-            </div>
 
-            <div className="p-8 flex flex-col">
-              <div className="mb-6">
-                {product.category && (
-                  <button
-                    onClick={() => handleNavigation('category', product.category.slug)}
-                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-sm font-semibold mb-4 hover:from-purple-200 hover:to-pink-200 transition-all"
-                  >
-                    {product.category.nom}
-                  </button>
-                )}
+              {/* Image Principale */}
+              <div className="flex-1 relative bg-neutral-100 aspect-[3/4] md:aspect-auto md:h-[600px] lg:h-[700px] cursor-zoom-in group rounded-lg overflow-hidden" onClick={() => setShowZoom(true)}>
+                <img 
+                  src={images[currentImageIndex]?.original || '/assets/images/placeholder.jpg'} 
+                  alt={images[currentImageIndex]?.alt_text || product.nom}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src = '/assets/images/placeholder.jpg';
+                  }}
+                />
                 
-                <h1 className="text-4xl font-bold text-gray-900 mb-3 leading-tight">{product.nom}</h1>
-                
-                {product.description_courte && (
-                  <p className="text-lg text-gray-600 leading-relaxed">{product.description_courte}</p>
-                )}
+                {/* Badges Flottants */}
+                <div className="absolute top-3 left-3 md:top-4 md:left-4 flex flex-col gap-2 z-10">
+                  {product.en_promo && <span className="bg-red-600 text-white text-[9px] md:text-[10px] font-bold px-2 py-1 uppercase tracking-wider shadow-lg rounded">-{product.pourcentage_reduction}%</span>}
+                  {product.est_nouveaute && <span className="bg-white text-black text-[9px] md:text-[10px] font-bold px-2 py-1 uppercase tracking-wider shadow-lg rounded">Nouveau</span>}
+                  {product.est_populaire && <span className="bg-yellow-400 text-black text-[9px] md:text-[10px] font-bold px-2 py-1 uppercase tracking-wider shadow-lg rounded">⭐ Populaire</span>}
+                </div>
+
+                <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 bg-white/90 p-2 md:p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                  <ZoomIn className="w-4 h-4 md:w-5 md:h-5 text-black" />
+                </div>
               </div>
+            </div>
+          </div>
 
-              {product.note_moyenne > 0 && (
-                <div className="flex items-center gap-4 mb-6 pb-6 border-b">
+          {/* DROITE : INFORMATIONS (Sticky) */}
+          <div className="lg:w-2/5 lg:sticky lg:top-24 h-fit space-y-6 md:space-y-8">
+            
+            {/* Header Produit */}
+            <div className="border-b border-neutral-200 pb-4 md:pb-6">
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-light uppercase tracking-wide mb-3">{product.nom}</h1>
+              
+              {/* Note et Avis */}
+              {product.nombre_avis > 0 && (
+                <div className="flex items-center gap-2 mb-3">
                   <div className="flex items-center gap-1">
                     {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`h-6 w-6 ${
-                          i < Math.floor(product.note_moyenne) ? 'text-yellow-400 fill-current' : 'text-gray-300'
-                        }`}
-                      />
+                      <Star key={i} className={`w-4 h-4 ${i < Math.floor(product.note_moyenne) ? 'fill-yellow-400 text-yellow-400' : 'text-neutral-300'}`} />
                     ))}
                   </div>
-                  <span className="text-lg font-semibold text-gray-900">
-                    {product.note_moyenne.toFixed(1)}
-                  </span>
-                  <span className="text-gray-500">({product.nombre_avis} avis)</span>
-                  <Eye className="h-5 w-5 text-gray-400 ml-auto" />
-                  <span className="text-gray-500">{product.nombre_vues || 0} vues</span>
+                  <span className="text-xs text-neutral-600">({product.nombre_avis} avis)</span>
                 </div>
               )}
-
-              <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl">
-                <div className="flex items-baseline gap-4 flex-wrap mb-2">
-                  <span className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                    {(product.prix_promo || product.prix).toLocaleString()} FCFA
-                  </span>
-                  {product.prix_promo && (
-                    <span className="text-2xl text-gray-400 line-through">
-                      {product.prix.toLocaleString()} FCFA
-                    </span>
+              
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4">
+                <div className="flex items-baseline gap-3 md:gap-4">
+                  <span className="text-2xl md:text-3xl font-medium">{product.prix_affiche?.toLocaleString()} FCFA</span>
+                  {product.en_promo && (
+                    <span className="text-base md:text-lg text-neutral-400 line-through font-light">{product.prix?.toLocaleString()} FCFA</span>
                   )}
                 </div>
-                {product.prix_promo && (
-                  <p className="text-green-600 font-semibold flex items-center gap-2">
-                    <Check className="h-5 w-5" />
-                    Vous économisez {(product.prix - product.prix_promo).toLocaleString()} FCFA
-                  </p>
-                )}
+                
+                {/* Actions Rapides */}
+                <div className="flex gap-2">
+                  <button onClick={handleAddToWishlist} className={`p-3 rounded-full border border-neutral-200 hover:border-black transition-colors ${isInWishlist ? 'bg-black text-white' : 'text-black'}`}>
+                    <Heart className="w-5 h-5" />
+                  </button>
+                  <button onClick={() => {
+                     if (navigator.share) navigator.share({ title: product.nom, url: window.location.href });
+                  }} className="p-3 rounded-full border border-neutral-200 hover:border-black transition-colors text-black">
+                    <Share2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
+            </div>
 
+            {/* Description courte */}
+            {product.description_courte && (
+              <div className="text-sm md:text-base text-neutral-600 leading-relaxed">
+                {product.description_courte}
+              </div>
+            )}
+
+            {/* Disponibilité et Stock */}
+            <div className="flex items-center gap-4 text-sm">
+              {product.en_stock ? (
+                <span className="flex items-center gap-2 text-green-600 font-medium">
+                  <Check className="w-4 h-4" /> En stock
+                </span>
+              ) : (
+                <span className="text-red-600 font-medium">Rupture de stock</span>
+              )}
+              {product.fait_sur_mesure && (
+                <span className="text-neutral-600">
+                  • Fait sur mesure ({product.delai_production_jours} jours)
+                </span>
+              )}
+            </div>
+
+            {/* Sélecteurs */}
+            <div className="space-y-5 md:space-y-6">
+              {/* Couleurs */}
               {product.couleurs_disponibles?.length > 0 && (
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-lg text-gray-900">
-                      Couleur: <span className="text-purple-600">{selectedColor}</span>
-                    </h3>
-                    <span className="text-sm text-gray-500">
-                      {product.couleurs_disponibles.length} disponible{product.couleurs_disponibles.length > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    {product.couleurs_disponibles.map((color, idx) => {
-                      const colorStyle = getColorStyle(color);
-                      
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => setSelectedColor(color)}
-                          className={`group relative transition-all ${
-                            selectedColor === color ? 'scale-110' : 'hover:scale-105'
-                          }`}
-                        >
-                          <div
-                            className={`w-16 h-16 rounded-xl border-4 transition-all ${
-                              selectedColor === color
-                                ? 'border-purple-600 shadow-xl'
-                                : 'border-gray-200 hover:border-purple-300'
-                            }`}
-                            style={{ 
-                              background: colorStyle,
-                              boxShadow: selectedColor === color ? '0 0 0 4px rgba(147, 51, 234, 0.1)' : 'none'
-                            }}
-                          >
-                            {selectedColor === color && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center">
-                                  <Check className="w-5 h-5 text-purple-600" />
-                                </div>
-                              </div>
-                            )}
-                            {color.toLowerCase() === 'blanc' && (
-                              <div className="absolute inset-0 border-2 border-gray-300 rounded-xl"></div>
-                            )}
-                          </div>
-                          <span className={`block mt-2 text-xs font-medium text-center ${
-                            selectedColor === color ? 'text-purple-600' : 'text-gray-600'
-                          }`}>
-                            {color}
-                          </span>
-                        </button>
-                      );
-                    })}
+                <div>
+                  <span className="text-xs md:text-sm font-bold uppercase tracking-widest block mb-3">Couleur : <span className="text-neutral-600">{selectedColor}</span></span>
+                  <div className="flex flex-wrap gap-2 md:gap-3">
+                    {product.couleurs_disponibles.map((color, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setSelectedColor(color)}
+                        className={`w-10 h-10 md:w-12 md:h-12 rounded-full border-2 flex items-center justify-center transition-all ${
+                          selectedColor === color ? 'border-black ring-2 ring-black ring-offset-2 scale-110' : 'border-neutral-200 hover:border-neutral-400 hover:scale-105'
+                        }`}
+                        style={{ background: colorMap[color.toLowerCase()] || '#eee' }}
+                        title={color}
+                      >
+                         {color.toLowerCase() === 'blanc' && <span className="w-8 h-8 border border-neutral-300 rounded-full"></span>}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
 
+              {/* Tailles */}
               {product.tailles_disponibles?.length > 0 && (
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-lg text-gray-900">
-                      Taille: <span className="text-purple-600">{selectedSize || 'Sélectionner'}</span>
-                    </h3>
-                    <button className="text-sm text-purple-600 hover:underline font-medium">
-                      Guide des tailles
-                    </button>
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs md:text-sm font-bold uppercase tracking-widest">Taille : <span className="text-neutral-600">{selectedSize}</span></span>
+                    <button className="text-[10px] md:text-xs underline decoration-neutral-300 hover:text-neutral-500">Guide des tailles</button>
                   </div>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
                     {product.tailles_disponibles.map((size, idx) => (
                       <button
                         key={idx}
                         onClick={() => setSelectedSize(size)}
-                        className={`py-4 px-3 border-3 rounded-xl font-bold transition-all transform hover:scale-105 ${
-                          selectedSize === size
-                            ? 'border-purple-600 bg-purple-50 text-purple-600 shadow-lg scale-105'
-                            : 'border-gray-200 hover:border-purple-300 text-gray-700 hover:bg-purple-50'
+                        className={`h-10 md:h-12 border-2 text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all rounded ${
+                          selectedSize === size 
+                            ? 'bg-black text-white border-black scale-105' 
+                            : 'bg-white text-neutral-600 border-neutral-200 hover:border-black hover:scale-105'
                         }`}
                       >
                         {size}
@@ -482,172 +351,152 @@ const ProductDetailPage = () => {
                 </div>
               )}
 
-              <div className="mb-8">
-                <h3 className="font-bold text-lg mb-4 text-gray-900">Quantité</h3>
-                <div className="inline-flex items-center border-3 border-gray-200 rounded-xl overflow-hidden shadow-md">
-                  <button
+              {/* Quantité */}
+              <div>
+                <span className="text-xs md:text-sm font-bold uppercase tracking-widest block mb-3">Quantité</span>
+                <div className="flex items-center w-28 md:w-32 border-2 border-neutral-200 h-10 md:h-12 rounded">
+                  <button 
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-14 h-14 flex items-center justify-center hover:bg-purple-50 transition-colors text-2xl font-bold text-gray-700"
+                    className="w-8 md:w-10 h-full flex items-center justify-center hover:bg-neutral-50 transition-colors"
                   >
-                    −
+                    <Minus className="w-3 h-3 md:w-4 md:h-4" />
                   </button>
-                  <div className="w-20 h-14 flex items-center justify-center border-x-3 border-gray-200 font-bold text-xl text-gray-900">
+                  <div className="flex-1 h-full flex items-center justify-center text-sm md:text-base font-bold border-x-2 border-neutral-200">
                     {quantity}
                   </div>
-                  <button
+                  <button 
                     onClick={() => setQuantity(quantity + 1)}
-                    className="w-14 h-14 flex items-center justify-center hover:bg-purple-50 transition-colors text-2xl font-bold text-gray-700"
+                    className="w-8 md:w-10 h-full flex items-center justify-center hover:bg-neutral-50 transition-colors"
                   >
-                    +
+                    <Plus className="w-3 h-3 md:w-4 md:h-4" />
                   </button>
                 </div>
               </div>
-
-              <div className="space-y-3 mb-8">
-                <button
-                  onClick={handleAddToCart}
-                  className="w-full bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 text-white py-5 px-8 rounded-2xl hover:from-purple-700 hover:via-pink-700 hover:to-purple-700 transition-all duration-300 font-bold text-lg transform hover:scale-105 active:scale-95 flex items-center justify-center gap-3 shadow-2xl animate-gradient bg-[length:200%_200%]"
-                >
-                  <ShoppingCart className="h-6 w-6" />
-                  Ajouter au panier
-                </button>
-
-                <button
-                  onClick={() => window.open(`https://wa.me/221771397393?text=Je suis intéressé par ${product.nom}`, '_blank')}
-                  className="w-full bg-green-500 text-white py-5 px-8 rounded-2xl hover:bg-green-600 transition-all duration-300 font-bold text-lg transform hover:scale-105 flex items-center justify-center gap-3 shadow-xl"
-                >
-                  <MessageCircle className="h-6 w-6" />
-                  Commander via WhatsApp
-                </button>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl">
-                <div className="text-center">
-                  <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mx-auto mb-2 shadow-md">
-                    <Truck className="h-7 w-7 text-purple-600" />
-                  </div>
-                  <p className="text-xs font-semibold text-gray-700">Livraison gratuite</p>
-                </div>
-                <div className="text-center">
-                  <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mx-auto mb-2 shadow-md">
-                    <Shield className="h-7 w-7 text-purple-600" />
-                  </div>
-                  <p className="text-xs font-semibold text-gray-700">Paiement sécurisé</p>
-                </div>
-                {product.fait_sur_mesure && (
-                  <div className="text-center">
-                    <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mx-auto mb-2 shadow-md">
-                      <Award className="h-7 w-7 text-purple-600" />
-                    </div>
-                    <p className="text-xs font-semibold text-gray-700">Sur mesure</p>
-                  </div>
-                )}
-              </div>
             </div>
-          </div>
 
-          {product.description && (
-            <div className="mt-8 bg-white rounded-3xl shadow-xl p-8">
-              <h2 className="text-3xl font-bold mb-6 text-gray-900">Description</h2>
-              <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed">
-                {product.description.split('\n').map((line, idx) => (
-                  <p key={idx} className="mb-4">{line}</p>
+            {/* Boutons d'action */}
+            <div className="space-y-3 pt-4">
+              <button 
+                onClick={handleAddToCart}
+                disabled={!product.en_stock}
+                className="w-full bg-black text-white h-12 md:h-14 text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2 disabled:bg-neutral-300 disabled:cursor-not-allowed rounded"
+              >
+                <ShoppingBag className="w-4 h-4" /> Ajouter au panier
+              </button>
+              
+              <button 
+                onClick={() => handleWhatsAppOrder()}
+                className="w-full bg-[#25D366] text-white h-12 md:h-14 text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-[#128C7E] transition-colors flex items-center justify-center gap-2 rounded"
+              >
+                <MessageCircle className="w-4 h-4" /> Commander sur WhatsApp
+              </button>
+            </div>
+
+            {/* Réassurance */}
+            <div className="grid grid-cols-2 gap-3 md:gap-4 py-4 md:py-6 border-t border-b border-neutral-100">
+               <div className="flex items-center gap-2 md:gap-3">
+                 <Truck className="w-4 h-4 md:w-5 md:h-5 text-neutral-400" />
+                 <span className="text-[10px] md:text-xs uppercase tracking-wide text-neutral-600">Livraison Rapide</span>
+               </div>
+               <div className="flex items-center gap-2 md:gap-3">
+                 <Shield className="w-4 h-4 md:w-5 md:h-5 text-neutral-400" />
+                 <span className="text-[10px] md:text-xs uppercase tracking-wide text-neutral-600">Paiement Sécurisé</span>
+               </div>
+            </div>
+
+            {/* Description complète */}
+            {product.description && (
+              <div className="text-xs md:text-sm text-neutral-600 font-light leading-relaxed space-y-3 md:space-y-4">
+                 <h3 className="text-black font-bold uppercase tracking-widest text-xs md:text-sm">Détails du produit</h3>
+                 <p>{product.description}</p>
+              </div>
+            )}
+
+            {/* Tags */}
+            {product.tags?.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {product.tags.map((tag, idx) => (
+                  <span key={idx} className="px-3 py-1 bg-neutral-100 text-neutral-700 text-xs rounded-full">
+                    #{tag.trim()}
+                  </span>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        </div>
 
-          {relatedProducts.length > 0 && (
-            <div className="mt-12 mb-12">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-3xl font-bold text-gray-900">Vous aimerez aussi</h2>
-                <span className="text-gray-500">{relatedProducts.length} produits</span>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                {relatedProducts.map((related) => (
-                  <div
-                    key={related.id}
-                    onClick={() => window.location.href = `/products/${related.slug}`}
-                    className="group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
-                  >
-                    <div className="aspect-[3/4] bg-gray-100 overflow-hidden relative">
-                      <img
-                        src={related.image}
-                        alt={related.nom}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                      {related.prix_promo && (
-                        <div className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                          -{Math.round(((related.prix - related.prix_promo) / related.prix) * 100)}%
-                        </div>
+        {/* RELATED PRODUCTS */}
+        {relatedProducts.length > 0 && (
+          <div className="mt-16 md:mt-24 border-t border-neutral-200 pt-12 md:pt-16">
+            <h2 className="text-xl md:text-2xl lg:text-3xl font-light uppercase tracking-wide text-center mb-8 md:mb-12">Vous aimerez aussi</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 lg:gap-8">
+              {relatedProducts.map(related => (
+                <div key={related.id} className="group flex flex-col">
+                  <div className="aspect-[3/4] bg-neutral-100 overflow-hidden relative mb-3 md:mb-4 rounded-lg cursor-pointer" onClick={() => window.location.href = `/products/${related.slug}`}>
+                    <img 
+                      src={related.image} 
+                      alt={related.nom} 
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      onError={(e) => {
+                        e.target.src = '/assets/images/placeholder.jpg';
+                      }}
+                    />
+                    {/* Badges */}
+                    <div className="absolute top-2 left-2 flex flex-col gap-1">
+                      {related.en_promo && <span className="bg-red-600 text-white text-[9px] md:text-[10px] font-bold px-2 py-1 uppercase tracking-wider shadow rounded">Promo</span>}
+                      {related.est_nouveaute && <span className="bg-white text-black text-[9px] md:text-[10px] font-bold px-2 py-1 uppercase tracking-wider shadow rounded">New</span>}
+                    </div>
+
+                    {/* Boutons d'action au hover */}
+                    <div className="absolute bottom-0 left-0 right-0 flex flex-col translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleRelatedAddToCart(related.id); }}
+                        className="bg-white text-black py-2 md:py-3 text-[9px] md:text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors border-t border-gray-100 flex items-center justify-center gap-1 md:gap-2"
+                      >
+                        <ShoppingBag className="w-3 h-3" /> Ajouter
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleWhatsAppOrder(related); }}
+                        className="bg-[#25D366] text-white py-2 md:py-3 text-[9px] md:text-[10px] font-bold uppercase tracking-widest hover:bg-[#128C7E] transition-colors flex items-center justify-center gap-1 md:gap-2"
+                      >
+                        <MessageCircle className="w-3 h-3" /> WhatsApp
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center" onClick={() => window.location.href = `/products/${related.slug}`}>
+                    <h3 className="text-xs md:text-sm font-medium uppercase tracking-wide text-black mb-1 line-clamp-1 cursor-pointer hover:underline">{related.nom}</h3>
+                    <div className="text-xs md:text-sm">
+                      {related.en_promo ? (
+                        <>
+                          <span className="text-red-600 font-bold mr-2">{related.prix_affiche?.toLocaleString()} FCFA</span>
+                          <span className="text-neutral-400 line-through text-xs">{related.prix?.toLocaleString()}</span>
+                        </>
+                      ) : (
+                        <span className="font-bold text-black">{related.prix_affiche?.toLocaleString()} FCFA</span>
                       )}
                     </div>
-                    <div className="p-4">
-                      <h3 className="font-semibold text-gray-900 line-clamp-2 group-hover:text-purple-600 transition-colors mb-2">
-                        {related.nom}
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-purple-600">
-                          {(related.prix_promo || related.prix).toLocaleString()} FCFA
-                        </span>
-                        {related.prix_promo && (
-                          <span className="text-sm text-gray-400 line-through">
-                            {related.prix.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
+      {/* ZOOM MODAL */}
       {showZoom && (
-        <div 
-          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
-          onClick={() => setShowZoom(false)}
-        >
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowZoom(false);
-            }}
-            className="absolute top-4 right-4 w-12 h-12 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors z-10"
-          >
-            <X className="h-6 w-6" />
+        <div className="fixed inset-0 z-[100] bg-white flex items-center justify-center" onClick={() => setShowZoom(false)}>
+          <button className="absolute top-8 right-8 p-2 hover:bg-neutral-100 rounded-full">
+            <X className="w-8 h-8 text-black" />
           </button>
-          <img
-            src={images[currentImageIndex]?.original || product.image || '/images/placeholder-product.jpg'}
-            alt={product.nom}
-            className="max-w-full max-h-full object-contain"
-            onClick={(e) => e.stopPropagation()}
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = '/images/placeholder-product.jpg';
-            }}
+          <img 
+            src={images[currentImageIndex]?.original} 
+            alt="Zoom" 
+            className="max-w-full max-h-[90vh] object-contain cursor-zoom-out"
           />
         </div>
       )}
-
-      <style>{`
-        @keyframes gradient {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        .animate-gradient {
-          animation: gradient 3s ease infinite;
-        }
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
     </div>
   );
 };

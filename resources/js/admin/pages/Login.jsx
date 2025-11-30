@@ -67,30 +67,27 @@ const AdminLogin = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-            <div className="w-full max-w-sm">
+        <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
+            <div className="w-full max-w-md">
                 
-                {/* Bloc principal compact */}
-                <div className="bg-white rounded-lg shadow-lg p-6">
+                {/* Bloc principal */}
+                <div className="bg-white border border-neutral-100 p-8">
                     
-                    {/* Logo large */}
-                    <div className="text-center mb-6">
-                        <img 
-                            src="/assets/images/vivias.jpg" 
-                            alt="VIVIA'S SHOP Logo" 
-                            className="w-32 h-32 object-cover rounded-full mx-auto mb-3 shadow-lg"
-                        />
-                        <p className="text-gray-600 text-sm mb-1">
-                            Administration
-                        </p>
+                    {/* Logo */}
+                    <div className="text-center mb-8">
+                        <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span className="text-white font-bold text-3xl">V</span>
+                        </div>
+                        <h1 className="text-2xl font-light uppercase tracking-[0.2em] mb-1">VIVIAS SHOP</h1>
+                        <p className="text-xs text-neutral-400 uppercase tracking-widest">Administration</p>
                     </div>
 
-                    {/* Formulaire compact */}
-                    <form className="space-y-4" onSubmit={handleSubmit}>
+                    {/* Formulaire */}
+                    <form className="space-y-6" onSubmit={handleSubmit}>
                         
                         {/* Email */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-[10px] font-bold uppercase tracking-widest text-neutral-600 mb-2">
                                 Adresse email
                             </label>
                             <input
@@ -99,14 +96,14 @@ const AdminLogin = () => {
                                 value={formData.email}
                                 onChange={handleChange}
                                 required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white focus:border-purple-500 focus:outline-none transition-all text-sm"
+                                className="w-full px-4 py-3 border border-neutral-200 bg-white focus:border-black focus:outline-none transition-all text-sm"
                                 placeholder="exemple@vivias-shop.com"
                             />
                         </div>
 
                         {/* Mot de passe */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-[10px] font-bold uppercase tracking-widest text-neutral-600 mb-2">
                                 Mot de passe
                             </label>
                             <input
@@ -115,70 +112,67 @@ const AdminLogin = () => {
                                 value={formData.password}
                                 onChange={handleChange}
                                 required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white focus:border-purple-500 focus:outline-none transition-all text-sm"
+                                className="w-full px-4 py-3 border border-neutral-200 bg-white focus:border-black focus:outline-none transition-all text-sm"
                                 placeholder="Votre mot de passe"
                             />
                         </div>
 
-                        {/* Se souvenir + Mot de passe oublié */}
-                        <div className="flex items-center justify-between text-sm">
+                        {/* Se souvenir */}
+                        <div className="flex items-center text-xs">
                             <label className="flex items-center">
                                 <input
                                     name="remember"
                                     type="checkbox"
                                     checked={formData.remember}
                                     onChange={handleChange}
-                                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded mr-2"
+                                    className="h-4 w-4 text-black focus:ring-black border-neutral-300 rounded mr-2"
                                 />
-                                Se souvenir de moi
+                                <span className="uppercase tracking-wide">Se souvenir de moi</span>
                             </label>
-                            <a href="#" className="text-purple-600 hover:text-purple-800">
-                                Mot de passe oublié ?
-                            </a>
                         </div>
 
                         {/* Bouton connexion */}
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 px-4 rounded-md transition-colors duration-200 disabled:opacity-50 text-sm"
+                            className="w-full bg-black hover:bg-neutral-800 text-white font-bold py-4 px-4 transition-colors duration-200 disabled:opacity-50 text-xs uppercase tracking-widest"
                         >
-                            {loading ? 'Connexion en cours...' : 'Se connecter'}
+                            {loading ? 'Connexion...' : 'Se connecter'}
                         </button>
                     </form>
 
-                    {/* Comptes de test - version compacte */}
-                    <div className="mt-6 pt-4 border-t border-gray-200">
-                        <p className="text-xs text-gray-600 text-center mb-3">
-                            Comptes de démonstration
+                    {/* Comptes de test */}
+                    <div className="mt-8 pt-6 border-t border-neutral-100">
+                        <p className="text-[10px] text-neutral-400 uppercase tracking-widest text-center mb-4">
+                            Comptes de test
                         </p>
                         
                         <div className="space-y-2">
                             <button
                                 type="button"
                                 onClick={() => fillTestCredentials('admin1')}
-                                className="w-full text-left p-2 bg-gray-50 hover:bg-purple-50 border border-gray-200 hover:border-purple-200 rounded text-xs transition-colors duration-200"
+                                className="w-full text-left p-3 bg-neutral-50 hover:bg-black hover:text-white border border-neutral-100 transition-all duration-200"
                             >
-                                <div className="font-medium text-gray-900">Administrateur Principal</div>
-                                <div className="text-gray-600">admin@vivias-shop.com</div>
+                                <div className="font-bold text-xs uppercase tracking-wide">Admin Principal</div>
+                                <div className="text-[10px] text-neutral-400 mt-1">admin@vivias-shop.com</div>
                             </button>
 
                             <button
                                 type="button"
                                 onClick={() => fillTestCredentials('admin2')}
-                                className="w-full text-left p-2 bg-gray-50 hover:bg-purple-50 border border-gray-200 hover:border-purple-200 rounded text-xs transition-colors duration-200"
+                                className="w-full text-left p-3 bg-neutral-50 hover:bg-black hover:text-white border border-neutral-100 transition-all duration-200"
                             >
-                                <div className="font-medium text-gray-900">Administrateur Birame</div>
-                                <div className="text-gray-600">diopbirame8@gmail.com</div>
+                                <div className="font-bold text-xs uppercase tracking-wide">Admin Birame</div>
+                                <div className="text-[10px] text-neutral-400 mt-1">diopbirame8@gmail.com</div>
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* Footer compact */}
-                <div className="text-center mt-4">
-                    <p className="text-xs text-gray-600">
-                        © 2024 VIVIA'S SHOP. Tous droits réservés.
+                {/* Footer */}
+                <div className="text-center mt-8">
+                    <p className="text-[10px] text-neutral-400 uppercase tracking-widest">
+                        © 2024 VIVIAS SHOP. Tous droits réservés.
                     </p>
                 </div>
             </div>

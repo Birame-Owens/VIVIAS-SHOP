@@ -13,7 +13,7 @@ return [
 
     // WhatsApp Business
     'whatsapp' => [
-        'number' => env('WHATSAPP_BUSINESS_NUMBER', '221771397393'),
+        'number' => env('WHATSAPP_BUSINESS_NUMBER', '221784661412'),
         'enabled' => env('WHATSAPP_ENABLED', true),
         'template_messages' => [
             'product_inquiry' => "Bonjour VIVIAS SHOP ! 👋\n\nJe suis intéressé(e) par ce produit :\n📦 *:product_name*\n💰 Prix : :price FCFA\n\nPourriez-vous me donner plus d'informations ?\nMerci ! 🙏",

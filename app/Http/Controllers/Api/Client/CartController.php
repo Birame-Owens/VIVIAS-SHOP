@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Client;
 use App\Http\Controllers\Controller;
 use App\Services\Client\CartService;
 use App\Http\Requests\Client\CartRequest;
+use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class CartController extends Controller
@@ -19,9 +20,25 @@ class CartController extends Controller
     public function index(): JsonResponse
     {
         try {
+            \Log::info('🛒 CartController@index - Récupération du panier', [
+                'user' => request()->user()?->id,
+                'session_id' => session()->getId()
+            ]);
+            
             $cart = $this->cartService->getCart();
+            
+            \Log::info('🛒 CartController@index - Panier récupéré', [
+                'items_count' => count($cart['items']),
+                'total' => $cart['total'],
+                'cart_data' => $cart
+            ]);
+            
             return response()->json(['success' => true, 'data' => $cart]);
         } catch (\Exception $e) {
+            \Log::error('❌ CartController@index - Erreur', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json(['success' => false, 'message' => 'Erreur'], 500);
         }
     }
@@ -40,15 +57,16 @@ class CartController extends Controller
             );
             return response()->json($result);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Erreur'], 500);
+            \Log::error('Erreur add cart: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json(['success' => false, 'message' => 'Erreur: ' . $e->getMessage()], 500);
         }
     }
 
-    public function update(string $itemId, CartRequest $request): JsonResponse
+    public function update(string $itemId, Request $request): JsonResponse
     {
         try {
-            $validated = $request->validated();
-            $result = $this->cartService->updateItem($itemId, $validated['quantity']);
+            $quantity = $request->input('quantity', 1);
+            $result = $this->cartService->updateItem($itemId, $quantity);
             return response()->json($result);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Erreur'], 500);
@@ -86,7 +104,8 @@ class CartController extends Controller
                 'data' => ['count' => $cart['count']]
             ]);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Erreur comptage'], 500);
+            \Log::error('Erreur getCount: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json(['success' => false, 'message' => 'Erreur comptage: ' . $e->getMessage()], 500);
         }
     }
 

@@ -1111,8 +1111,13 @@ const duplicateProduct = async (product) => {
                                             {/* Image principale */}
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Image principale
+                                                    Image principale <span className="text-red-500">*</span>
                                                 </label>
+                                                {formErrors.image_principale && (
+                                                    <p className="text-sm text-red-600 mb-2">
+                                                        {formErrors.image_principale[0]}
+                                                    </p>
+                                                )}
                                                 <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-purple-400 transition-colors">
                                                     <div className="space-y-1 text-center">
                                                         {imagePreview ? (

@@ -16,6 +16,7 @@ class ProduitRequest extends FormRequest
     public function rules(): array
     {
         $produitId = $this->route('produit') ? $this->route('produit')->id : null;
+        $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
 
         return [
             'nom' => [
@@ -150,9 +151,9 @@ class ProduitRequest extends FormRequest
                 'max:500'
             ],
             
-            // Images
+            // Images - obligatoire à la création, optionnelle en mise à jour
             'image_principale' => [
-                'nullable',
+                $isUpdate ? 'nullable' : 'required',
                 'image',
                 'mimes:jpeg,png,jpg,webp',
                 'max:3072' // 3MB max
@@ -267,7 +268,8 @@ class ProduitRequest extends FormRequest
             'tags.max' => 'Les tags ne peuvent pas dépasser 500 caractères.',
             
             // Images
-            'image_principale.image' => 'L\'image principale doit être une image.',
+            'image_principale.required' => 'L\'image principale est obligatoire.',
+            'image_principale.image' => 'Le fichier sélectionné doit être une image valide (vérifiez que le fichier n\'est pas corrompu).',
             'image_principale.mimes' => 'L\'image principale doit être au format JPEG, PNG, JPG ou WebP.',
             'image_principale.max' => 'L\'image principale ne peut pas dépasser 3 MB.',
             

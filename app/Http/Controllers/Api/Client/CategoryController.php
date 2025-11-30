@@ -110,13 +110,22 @@ class CategoryController extends Controller
 
         $result = $this->productService->getProducts($filters);
 
+        \Log::info('📦 CategoryController - Résultat products:', [
+            'category_id' => $category->id,
+            'category_slug' => $slug,
+            'filters' => $filters,
+            'products_count' => count($result['products'] ?? []),
+            'products_keys' => array_keys($result),
+            'first_product' => $result['products'][0] ?? null
+        ]);
+
         return response()->json([
             'success' => true,
             'data' => $result
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Erreur getProducts:', ['error' => $e->getMessage()]);
+        \Log::error('Erreur getProducts:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
         
         return response()->json([
             'success' => false,

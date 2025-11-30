@@ -1,323 +1,482 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-  ShoppingBag, Heart, Search, Menu, User, ChevronDown, ChevronRight,
-  Phone, Mail, Zap, X
+  ShoppingBag, Heart, Search, Menu, User, X, ChevronRight, Phone, Loader2, LogOut
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import AuthModal from './AuthModal';
+import api from '../utils/api';
 
 const Navbar = ({ 
   cartCount = 0, 
   wishlistCount = 0, 
   categories = [],
-  config = {},
-  onNavigate = () => {},
-  onSearch = () => {}
+  config = {}
 }) => {
+  console.log("🔧 Navbar chargé, cartCount:", cartCount);
+  const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
-  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hoveredCategory, setHoveredCategory] = useState(null);
-  const [categoryProducts, setCategoryProducts] = useState({});
+  const [activeCategoryProducts, setActiveCategoryProducts] = useState([]);
+  const [logoLoaded, setLogoLoaded] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState('login');
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const defaultConfig = {
-    company: { name: "VIVIAS SHOP", email: "contact@vivias-shop.com", whatsapp: "+221 77 123 45 67" },
+    company: { name: "VIVIAS", whatsapp: "+221 78 466 14 12" },
     currency: "FCFA",
     shipping: { free_threshold: 50000 }
   };
 
   const mergedConfig = { ...defaultConfig, ...config };
+  const searchRef = useRef(null);
 
+  // Prefetching pour navigation instantanée
+  const prefetchRoute = (type, slug = null) => {
+    try {
+      if (type === 'category' && slug) {
+        api.getCategoryProducts(slug, { page: 1 });
+      } else if (type === 'product' && slug) {
+        api.getProductBySlug(slug);
+      }
+    } catch (error) {
+      // Silencieux - juste du prefetch
+    }
+  };
+
+  // Navigation handler optimisé
+  const handleNavigate = (type, slug = null) => {
+    setMobileMenuOpen(false);
+    setSearchResults(null);
+    setSearchQuery('');
+    setShowUserMenu(false);
+    
+    switch(type) {
+      case 'home':
+        navigate('/');
+        break;
+      case 'category':
+        navigate(`/categories/${slug}`);
+        break;
+      case 'product':
+        navigate(`/products/${slug}`);
+        break;
+      case 'cart':
+        navigate('/cart');
+        break;
+      case 'wishlist':
+        navigate('/wishlist');
+        break;
+      case 'profile':
+        if (isAuthenticated) {
+          navigate('/profile');
+        } else {
+          openAuthModal('login');
+        }
+        break;
+      case 'account':
+        if (isAuthenticated) {
+          navigate('/account');
+        } else {
+          openAuthModal('login');
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  const openAuthModal = (mode = 'login') => {
+    setAuthModalMode(mode);
+    setAuthModalOpen(true);
+  };
+
+  const handleLogout = async () => {
+    setShowUserMenu(false);
+    await logout();
+    navigate('/');
+  };
+
+  // Gestion du scroll pour l'effet sticky
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 50);
+    const handleScroll = () => setIsScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Gestion de la recherche avec Debounce
   useEffect(() => {
     if (searchQuery.length >= 2) {
+      setIsSearching(true);
       const timer = setTimeout(async () => {
         try {
-          const results = await onSearch(searchQuery);
-          setSearchResults(results);
-          setShowSearchDropdown(true);
+          const response = await api.quickSearch(searchQuery);
+          setSearchResults(response.data);
         } catch (error) {
           console.error('Erreur recherche:', error);
+          setSearchResults({ produits: [], categories: [] });
+        } finally {
+          setIsSearching(false);
         }
-      }, 300);
+      }, 400);
       return () => clearTimeout(timer);
     } else {
-      setShowSearchDropdown(false);
+      setSearchResults(null);
+      setIsSearching(false);
     }
-  }, [searchQuery, onSearch]);
+  }, [searchQuery]);
+
+  // Fermer la recherche et le menu utilisateur si on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setSearchResults(null);
+      }
+      // Fermer le menu utilisateur si clic à l'extérieur
+      if (showUserMenu && !event.target.closest('.user-menu-container')) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showUserMenu]);
 
   const handleCategoryHover = async (category) => {
     setHoveredCategory(category);
-    
-    if (!categoryProducts[category.slug]) {
+    if (category?.products && category.products.length > 0) {
+      setActiveCategoryProducts(category.products.slice(0, 4));
+    } else {
+      // Charger les produits de la catégorie si pas déjà chargés
       try {
-        if (category.preview_products?.length > 0) {
-          setCategoryProducts(prev => ({ ...prev, [category.slug]: category.preview_products }));
-        } else {
-          const response = await fetch(`/api/client/categories/${category.slug}/products?per_page=6`);
-          const data = await response.json();
-          if (data.success) {
-            setCategoryProducts(prev => ({ ...prev, [category.slug]: data.data.products }));
-          }
+        const response = await api.getCategoryProducts(category.slug, { limit: 4 });
+        if (response.success && response.data?.produits) {
+          setActiveCategoryProducts(response.data.produits);
         }
       } catch (error) {
-        console.error('Erreur produits:', error);
+        console.error('Erreur chargement produits:', error);
+        setActiveCategoryProducts([]);
       }
     }
   };
 
   return (
     <>
-      {/* Top Bar */}
-      <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-2">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-4 md:gap-6">
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                <span className="hidden md:inline">{mergedConfig.company.whatsapp}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                <span className="hidden lg:inline">{mergedConfig.company.email}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 animate-pulse">
-              <Zap className="h-4 w-4" />
-              <span className="hidden sm:inline">
-                Livraison gratuite dès {mergedConfig.shipping.free_threshold.toLocaleString()} {mergedConfig.currency}
-              </span>
-            </div>
-          </div>
+      {/* 1. TOP BAR - Minimaliste Noir */}
+      <div className="bg-[#1A1A1A] text-white text-[10px] md:text-xs uppercase tracking-[0.2em] py-2.5 text-center transition-all">
+        <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
+          <span className="hidden md:block opacity-70">Service Client : {mergedConfig.company.whatsapp}</span>
+          <span className="mx-auto md:mx-0 animate-fade-in">
+            Livraison offerte dès {mergedConfig.shipping.free_threshold.toLocaleString()} {mergedConfig.currency}
+          </span>
         </div>
       </div>
 
-      {/* Main Navbar */}
-      <nav className={`sticky top-0 z-50 transition-all duration-300 ${
-        isScrolled ? 'bg-white/98 backdrop-blur-md shadow-xl' : 'bg-white shadow-md'
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      {/* 2. MAIN NAVBAR */}
+      <nav 
+        className={`sticky top-0 z-50 bg-white border-b border-neutral-100 transition-all duration-300 ${
+          isScrolled ? 'shadow-sm py-0' : 'py-2'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between h-16 md:h-20">
             
-            {/* Logo */}
-            <button onClick={() => onNavigate('home')} className="flex items-center space-x-3 group">
-              <div className="h-12 w-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                <span className="text-white font-bold text-xl">V</span>
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  {mergedConfig.company.name}
-                </h1>
-                <p className="text-xs text-gray-500">Mode Africaine</p>
-              </div>
+            {/* A. Mobile Menu Button - Ultra responsive */}
+            <button 
+              onClick={() => setMobileMenuOpen(true)} 
+              className="md:hidden p-2 -ml-2 text-black hover:bg-neutral-100 rounded-full transition-colors touch-manipulation active:scale-90 transition-transform duration-100"
+              aria-label="Ouvrir le menu"
+            >
+              <Menu className="h-6 w-6 stroke-1" />
             </button>
 
-            {/* Search Bar - Desktop */}
-            <div className="flex-1 max-w-2xl mx-8 hidden md:block relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher des produits, catégories..."
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-full focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+            {/* B. Logo - Optimisé pour mobile */}
+            <button 
+              onClick={() => handleNavigate('home')} 
+              className="flex-shrink-0 group relative z-10 flex items-center min-h-[40px] md:min-h-[48px] touch-manipulation"
+            >
+              <img 
+                src="/assets/images/vivias.jpg" 
+                alt="VIVIAS SHOP"
+                loading="eager"
+                decoding="async"
+                className="h-10 md:h-12 w-auto object-contain transition-transform duration-200 group-active:scale-95 md:group-hover:scale-105"
+                onLoad={() => setLogoLoaded(true)}
+                onError={() => setLogoLoaded(false)}
+                style={{ display: logoLoaded ? 'block' : 'none' }}
               />
-              <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
-              
-              {showSearchDropdown && searchResults && (
-                <div className="absolute top-full left-0 right-0 bg-white border-2 border-gray-100 rounded-2xl shadow-2xl mt-2 max-h-96 overflow-y-auto z-50">
+              {/* Fallback texte instantané */}
+              {!logoLoaded && (
+                <h1 className="text-lg md:text-2xl font-bold tracking-[0.1em] text-[#1A1A1A] whitespace-nowrap">
+                  VIVIAS
+                </h1>
+              )}
+            </button>
+
+            {/* C. Desktop Navigation - Centrée */}
+            <div className="hidden md:flex items-center justify-center flex-1 px-8">
+              {/* Navigation simplifiée - pas de menu */}
+            </div>
+
+            {/* D. Mobile Search Bar - Visible on navbar */}
+            <div className="flex md:hidden flex-1 mx-3 relative" ref={searchRef}>
+              <div className="relative w-full">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Rechercher..."
+                  className="w-full bg-neutral-100 rounded-full py-2 pl-10 pr-4 text-xs placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300 transition-shadow"
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 pointer-events-none" />
+                {isSearching && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-neutral-400" />
+                )}
+              </div>
+
+              {/* Mobile Search Results Dropdown */}
+              {searchQuery.length >= 2 && searchResults && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white shadow-xl border border-neutral-100 rounded-lg p-3 max-h-80 overflow-y-auto z-50">
                   {searchResults.produits?.length > 0 && (
-                    <div className="p-4">
-                      <h4 className="font-semibold text-gray-700 mb-3">Produits</h4>
-                      {searchResults.produits.map((product) => (
-                        <button
-                          key={product.id}
-                          onClick={() => { onNavigate('product', product.slug); setShowSearchDropdown(false); }}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-purple-50 rounded-lg"
+                    <div className="space-y-2">
+                      <div className="text-[10px] uppercase tracking-widest text-neutral-400 px-2">Produits</div>
+                      {searchResults.produits.map(p => (
+                        <div 
+                          key={p.id} 
+                          onClick={() => {
+                            handleNavigate('product', p.slug);
+                            setSearchQuery('');
+                            setSearchResults(null);
+                          }} 
+                          className="flex gap-3 cursor-pointer hover:bg-neutral-50 p-2 rounded active:scale-95 transition-all"
                         >
                           <img 
-                            src={product.image || '/images/placeholder-product.jpg'} 
-                            alt={product.nom} 
-                            className="w-12 h-12 object-cover rounded-lg"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = '/images/placeholder-product.jpg';
-                            }}
+                            src={p.image_principale || p.image || '/assets/images/placeholder.jpg'} 
+                            alt={p.nom}
+                            className="w-12 h-14 object-cover bg-neutral-200 rounded" 
                           />
-                          <div className="flex-1 text-left">
-                            <p className="font-medium text-gray-900">{product.nom}</p>
-                            <p className="text-purple-600 font-semibold">{product.prix_affiche?.toLocaleString()} {mergedConfig.currency}</p>
+                          <div className="flex-1">
+                            <div className="text-xs font-medium line-clamp-1">{p.nom}</div>
+                            <div className="text-xs text-neutral-500 mt-1">{p.prix_affiche?.toLocaleString()} FCFA</div>
                           </div>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   )}
-                  {searchResults.categories?.length > 0 && (
-                    <div className="p-4 border-t">
-                      <h4 className="font-semibold text-gray-700 mb-3">Catégories</h4>
-                      {searchResults.categories.map((cat) => (
-                        <button
-                          key={cat.id}
-                          onClick={() => { onNavigate('category', cat.slug); setShowSearchDropdown(false); }}
-                          className="w-full p-3 hover:bg-purple-50 rounded-lg flex justify-between items-center"
-                        >
-                          <span className="font-medium">{cat.nom}</span>
-                          <ChevronRight className="h-5 w-5 text-gray-400" />
-                        </button>
-                      ))}
+                  {searchResults.produits?.length === 0 && (
+                    <div className="text-xs text-center text-neutral-400 py-4">
+                      Aucun résultat trouvé
                     </div>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center space-x-1">
-              <button onClick={() => onNavigate('wishlist')} className="relative p-2 text-gray-600 hover:text-pink-600 transition-all hover:scale-110">
-                <Heart className="h-6 w-6" />
+            {/* E. Icons & Search */}
+            <div className="flex items-center gap-1 md:gap-4">
+              
+              {/* Search Bar Expandable */}
+              <div className="hidden md:block relative" ref={searchRef}>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="RECHERCHER"
+                    className="w-32 focus:w-64 transition-all duration-300 border-b border-transparent focus:border-black py-1 px-0 text-xs uppercase tracking-wide focus:outline-none placeholder-neutral-400 bg-transparent"
+                  />
+                  <Search className="absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 pointer-events-none" />
+                </div>
+
+                {/* Search Results Dropdown */}
+                {searchResults && (
+                  <div className="absolute top-full right-0 w-80 bg-white shadow-xl border border-neutral-100 mt-4 p-4 max-h-96 overflow-y-auto">
+                    {isSearching && <Loader2 className="w-4 h-4 animate-spin mx-auto my-4" />}
+                    
+                    {searchResults.produits?.length > 0 && (
+                       <div className="space-y-4">
+                          <div className="text-[10px] uppercase tracking-widest text-neutral-400">Produits</div>
+                          {searchResults.produits.map(p => (
+                            <div key={p.id} onClick={() => { handleNavigate('product', p.slug); }} className="flex gap-3 cursor-pointer group hover:bg-neutral-50 p-2 -mx-2 rounded">
+                               <img src={p.image_principale || p.image || '/assets/images/placeholder.jpg'} alt="" className="w-10 h-12 object-cover bg-neutral-100" />
+                               <div>
+                                  <div className="text-xs font-medium group-hover:underline">{p.nom}</div>
+                                  <div className="text-xs text-neutral-500">{p.prix_affiche?.toLocaleString()} FCFA</div>
+                               </div>
+                            </div>
+                          ))}
+                       </div>
+                    )}
+                    {searchResults.produits?.length === 0 && !isSearching && (
+                      <div className="text-xs text-center text-neutral-400 py-4">Aucun résultat trouvé</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Icons - Optimisés mobile */}
+              <button 
+                onClick={() => handleNavigate('wishlist')} 
+                className="hidden md:block p-2 hover:text-neutral-500 transition-colors relative touch-manipulation active:scale-95 transition-transform duration-100"
+              >
+                <Heart className="h-5 w-5 stroke-[1.5]" />
                 {wishlistCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                    {wishlistCount > 9 ? '9+' : wishlistCount}
-                  </span>
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full" />
                 )}
               </button>
 
-              <button onClick={() => onNavigate('cart')} className="relative p-2 text-gray-600 hover:text-purple-600 transition-all hover:scale-110">
-                <ShoppingBag className="h-6 w-6" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold animate-bounce">
-                    {cartCount > 9 ? '9+' : cartCount}
-                  </span>
-                )}
-              </button>
-
-              <button onClick={() => onNavigate('profile')} className="p-2 text-gray-600 hover:text-purple-600 transition-all hover:scale-110 hidden sm:block">
-                <User className="h-6 w-6" />
-              </button>
-
-              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 text-gray-600 ml-2">
-                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Categories Menu - Desktop */}
-        <div className="hidden md:block border-t border-gray-100 bg-gray-50/50">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex items-center justify-center gap-1 py-1">
-              {categories.slice(0, 7).map((category) => (
-                <div
-                  key={category.id}
-                  className="relative group"
-                  onMouseEnter={() => handleCategoryHover(category)}
-                  onMouseLeave={() => setHoveredCategory(null)}
-                >
-                  <button
-                    onClick={() => onNavigate('category', category.slug)}
-                    className="flex items-center gap-1 px-4 py-3 text-gray-700 hover:text-purple-600 font-medium transition-all hover:bg-white rounded-lg"
+              {/* User Menu - Conditionnel selon authentification */}
+              {isAuthenticated ? (
+                <div className="hidden md:block relative user-menu-container">
+                  <button 
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="p-2 hover:text-neutral-500 transition-colors touch-manipulation active:scale-95 transition-transform duration-100 flex items-center gap-2"
                   >
-                    {category.nom}
-                    <ChevronDown className="h-4 w-4 group-hover:rotate-180 transition-transform" />
+                    <User className="h-5 w-5 stroke-[1.5]" />
                   </button>
-
-                  {/* Mega Menu */}
-                  {hoveredCategory?.id === category.id && (
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full pt-2 w-[700px] z-50">
-                      <div className="bg-white rounded-2xl shadow-2xl border-2 border-gray-100 p-6">
-                        <div className="flex gap-6">
-                          <div className="w-1/3 border-r pr-6">
-                            {category.image && (
-                              <img 
-                                src={category.image} 
-                                alt={category.nom} 
-                                className="w-full h-32 object-cover rounded-lg mb-4"
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = '/images/placeholder-product.jpg';
-                                }}
-                              />
-                            )}
-                            <h3 className="font-bold text-lg mb-2">{category.nom}</h3>
-                            <p className="text-sm text-gray-600 mb-4">{category.description}</p>
-                            <button onClick={() => onNavigate('category', category.slug)} className="flex items-center gap-2 text-sm text-purple-600 font-semibold">
-                              Voir tout ({category.produits_count})
-                              <ChevronRight className="h-4 w-4" />
-                            </button>
-                          </div>
-                          <div className="w-2/3">
-                            <h4 className="font-semibold text-gray-700 mb-3">Produits populaires</h4>
-                            {categoryProducts[category.slug]?.length > 0 ? (
-                              <div className="grid grid-cols-3 gap-3">
-                                {categoryProducts[category.slug].slice(0, 6).map((product) => (
-                                  <button key={product.id} onClick={() => onNavigate('product', product.slug)} className="text-left">
-                                    <div className="aspect-square bg-gray-100 rounded-xl overflow-hidden mb-2 relative">
-                                      <img 
-                                        src={product.image || '/images/placeholder-product.jpg'} 
-                                        alt={product.nom} 
-                                        className="w-full h-full object-cover hover:scale-110 transition-transform"
-                                        onError={(e) => {
-                                          e.target.onerror = null;
-                                          e.target.src = '/images/placeholder-product.jpg';
-                                        }}
-                                      />
-                                      {product.en_promo && product.prix && product.prix_promo && (
-                                        <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                                          -{Math.round(((product.prix - product.prix_promo) / product.prix) * 100)}%
-                                        </div>
-                                      )}
-                                    </div>
-                                    <p className="text-xs font-medium truncate">{product.nom}</p>
-                                    <p className="text-sm text-purple-600 font-bold">{product.prix_affiche?.toLocaleString()}</p>
-                                  </button>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-500 text-center py-8">Chargement...</p>
-                            )}
-                          </div>
-                        </div>
+                  
+                  {/* Dropdown Menu */}
+                  {showUserMenu && (
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white shadow-xl border border-neutral-100 py-2 z-50 animate-fade-in">
+                      <div className="px-4 py-2 border-b border-neutral-100">
+                        <p className="text-xs font-bold uppercase tracking-widest truncate">{user?.nom_complet || user?.email}</p>
+                        <p className="text-[10px] text-neutral-400 truncate">{user?.email}</p>
                       </div>
+                      <button
+                        onClick={() => handleNavigate('profile')}
+                        className="w-full text-left px-4 py-2 text-xs hover:bg-neutral-50 transition-colors flex items-center gap-2"
+                      >
+                        <User className="w-3 h-3" />
+                        Mon Profil
+                      </button>
+                      <button
+                        onClick={() => handleNavigate('account')}
+                        className="w-full text-left px-4 py-2 text-xs hover:bg-neutral-50 transition-colors flex items-center gap-2"
+                      >
+                        <ShoppingBag className="w-3 h-3" />
+                        Mes Commandes
+                      </button>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-xs hover:bg-red-50 text-red-600 transition-colors flex items-center gap-2 border-t border-neutral-100 mt-2"
+                      >
+                        <LogOut className="w-3 h-3" />
+                        Déconnexion
+                      </button>
                     </div>
                   )}
                 </div>
-              ))}
+              ) : (
+                <button 
+                  onClick={() => openAuthModal('login')}
+                  className="hidden md:block p-2 hover:text-neutral-500 transition-colors touch-manipulation active:scale-95 transition-transform duration-100"
+                >
+                  <User className="h-5 w-5 stroke-[1.5]" />
+                </button>
+              )}
+
+              <button 
+                onClick={() => handleNavigate('cart')} 
+                className="p-2 hover:text-neutral-500 transition-colors relative touch-manipulation active:scale-95 transition-transform duration-100"
+              >
+                <ShoppingBag className="h-5 w-5 stroke-[1.5]" />
+                {cartCount > 0 && (
+                  <span className="absolute top-0 right-0 bg-black text-white text-[9px] font-bold h-4 w-4 flex items-center justify-center rounded-full">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
         </div>
+      </nav>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t">
-            <div className="px-4 py-4">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-full mb-4"
+      {/* 3. MOBILE MENU OVERLAY - Ultra responsive */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-[60] flex md:hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          
+          {/* Drawer optimisé */}
+          <div className="relative w-[80%] max-w-sm bg-white h-full shadow-2xl flex flex-col animate-slide-in-left">
+            <div className="p-6 flex justify-between items-center border-b border-neutral-100">
+              <img 
+                src="/assets/images/vivias.jpg" 
+                alt="VIVIAS SHOP"
+                loading="eager"
+                className="h-10 w-auto object-contain"
               />
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => { onNavigate('category', category.slug); setMobileMenuOpen(false); }}
-                  className="w-full text-left px-4 py-3 hover:bg-purple-50 rounded-lg flex justify-between items-center"
-                >
-                  <div>
-                    <span className="font-medium">{category.nom}</span>
-                    <span className="text-sm text-gray-500 ml-2">({category.produits_count})</span>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </button>
-              ))}
+              <button 
+                onClick={() => setMobileMenuOpen(false)} 
+                className="p-2 -mr-2 text-neutral-500 touch-manipulation active:scale-90 transition-transform duration-100"
+                aria-label="Fermer le menu"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-4 px-6 overscroll-contain">
+              <div className="space-y-6">
+                {/* Menu de navigation simplifié */}
+              </div>
+            </div>
+
+            <div className="p-6 bg-neutral-50 space-y-4">
+               <button 
+                 onClick={() => handleNavigate('wishlist')} 
+                 className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest touch-manipulation active:opacity-60 transition-opacity duration-100"
+               >
+                 <Heart className="w-4 h-4" /> Mes Favoris
+               </button>
+               
+               {isAuthenticated ? (
+                 <>
+                   <button 
+                     onClick={() => handleNavigate('profile')} 
+                     className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest touch-manipulation active:opacity-60 transition-opacity duration-100"
+                   >
+                     <User className="w-4 h-4" /> Mon Profil
+                   </button>
+                   <button 
+                     onClick={() => handleNavigate('account')} 
+                     className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest touch-manipulation active:opacity-60 transition-opacity duration-100"
+                   >
+                     <ShoppingBag className="w-4 h-4" /> Mes Commandes
+                   </button>
+                   <button 
+                     onClick={handleLogout}
+                     className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-red-600 touch-manipulation active:opacity-60 transition-opacity duration-100 border-t border-neutral-200 pt-4"
+                   >
+                     <LogOut className="w-4 h-4" /> Déconnexion
+                   </button>
+                 </>
+               ) : (
+                 <button 
+                   onClick={() => openAuthModal('login')}
+                   className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest touch-manipulation active:opacity-60 transition-opacity duration-100"
+                 >
+                   <User className="w-4 h-4" /> Se Connecter
+                 </button>
+               )}
             </div>
           </div>
-        )}
-      </nav>
+        </div>
+      )}
+
+      {/* Modal d'authentification */}
+      <AuthModal 
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        initialMode={authModalMode}
+      />
     </>
   );
 };

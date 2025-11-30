@@ -121,6 +121,12 @@ class Commande extends Model
 		return $this->hasMany(ArticlesCommande::class);
 	}
 
+	// Alias pour articles
+	public function articles()
+	{
+		return $this->articles_commandes();
+	}
+
 	public function paniers()
 	{
 		return $this->hasMany(Panier::class);

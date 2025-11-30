@@ -77,6 +77,11 @@ class User extends Authenticatable
         return $this->hasMany(Client::class);
     }
 
+    public function client()
+    {
+        return $this->hasOne(Client::class);
+    }
+
     public function stocks()
     {
         return $this->hasMany(Stock::class, 'valide_par_user_id');

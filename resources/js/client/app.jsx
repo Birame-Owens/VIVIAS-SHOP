@@ -1,14 +1,45 @@
-// resources/js/client/app.jsx - VERSION OPTIMISÉE
-import React, { useEffect, useState, createContext, Suspense, lazy } from "react";
+// resources/js/client/app.jsx - VERSION OPTIMISÉE AVEC AUTH
+import React, { useEffect, useState, createContext, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
 import api from "./utils/api";
 import "./client.css";
 
-// Lazy loading des pages pour réduire le bundle initial
+// Logs de débogage
+console.log("🔧 App.jsx chargé");
+
+// Gestion des erreurs non capturées
+window.addEventListener('error', (event) => {
+  console.error('❌ Erreur globale:', event.error);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('❌ Promise rejetée non gérée:', event.reason);
+});
+
+// LAZY LOADING avec prefetching agressif
 const HomePage = lazy(() => import("./pages/HomePage"));
+const ShopPage = lazy(() => import("./pages/ShopPage"));
 const CategoryPage = lazy(() => import("./pages/CategoryPage"));
 const ProductDetailPage = lazy(() => import("./pages/ProductDetailPage"));
+const CartPage = lazy(() => import("./pages/CartPage"));
+const WishlistPage = lazy(() => import("./pages/WishlistPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const AccountPage = lazy(() => import("./pages/AccountPage"));
+const OrdersPage = lazy(() => import("./pages/OrdersPage"));
+const OrderDetailPage = lazy(() => import("./pages/OrderDetailPage"));
+const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
+const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
+
+// Prefetch immédiat des composants critiques au chargement
+setTimeout(() => {
+    import("./pages/CategoryPage");
+    import("./pages/ProductDetailPage");
+}, 100);
+
+// Loading minimal - Invisible pour navigation fluide
+const PageLoader = () => null;
 
 // Context global
 export const AppContext = createContext({
@@ -16,56 +47,39 @@ export const AppContext = createContext({
     prefetchProduct: () => {}
 });
 
-// Composant de chargement élégant et rapide
-const PageLoader = () => (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-purple-50">
-        <div className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
-                <span className="text-white font-bold text-2xl">V</span>
-            </div>
-            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-purple-600 mx-auto mb-3"></div>
-            <p className="text-gray-600 text-base font-medium">Chargement...</p>
-        </div>
-    </div>
-);
-
 const AppClient = () => {
     const [config, setConfig] = useState(null);
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Initialiser CSRF dès le chargement
+        api.initCsrf();
         loadConfig();
-        // Précharger les données critiques en arrière-plan
         prefetchCriticalData();
     }, []);
 
     const loadConfig = async () => {
         try {
-            // Utiliser le cache si disponible
             const cachedConfig = sessionStorage.getItem('app_config');
             if (cachedConfig) {
                 setConfig(JSON.parse(cachedConfig));
-                setLoading(false);
                 return;
             }
 
             const response = await api.getConfig();
             if (response.success) {
                 setConfig(response.data);
-                // Mettre en cache pour les prochaines navigations
                 sessionStorage.setItem('app_config', JSON.stringify(response.data));
             } else {
                 throw new Error('Config non disponible');
             }
         } catch (error) {
             console.error('Erreur chargement config:', error);
-            // Configuration par défaut si erreur
             const defaultConfig = {
                 company: {
                     name: 'VIVIAS SHOP',
-                    whatsapp: '+221771397393',
+                    whatsapp: '+221784661412',
                     email: 'contact@viviasshop.sn',
-                    phone: '+221771397393',
+                    phone: '+221784661412',
                     address: 'Dakar, Sénégal'
                 },
                 currency: 'FCFA',
@@ -81,19 +95,14 @@ const AppClient = () => {
             };
             setConfig(defaultConfig);
             sessionStorage.setItem('app_config', JSON.stringify(defaultConfig));
-        } finally {
-            setLoading(false);
         }
     };
 
     // Précharger les données critiques
     const prefetchCriticalData = async () => {
         try {
-            // Précharger les catégories
             api.getCategories();
-            // Précharger le compteur panier
             api.getCartCount();
-            // Précharger le compteur wishlist
             api.getWishlistCount();
         } catch (error) {
             console.error('Erreur préchargement:', error);
@@ -107,80 +116,30 @@ const AppClient = () => {
         }
     };
 
-    if (loading) {
-        return <PageLoader />;
-    }
-
     return (
-        <AppContext.Provider value={{ config, prefetchProduct }}>
-            <Router>
-                <Suspense fallback={<PageLoader />}>
-                    <Routes>
-                        {/* Page d'accueil */}
-                        <Route path="/" element={<HomePage />} />
-                        
-                        {/* Pages produits */}
-                        <Route path="/products/:slug" element={<ProductDetailPage />} />
-                        
-                        {/* Pages catégories */}
-                        <Route path="/categories/:slug" element={<CategoryPage />} />
-                        
-                        {/* Panier */}
-                        <Route path="/cart" element={
-                            <div className="min-h-screen flex items-center justify-center">
-                                <div className="text-center">
-                                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Page Panier</h1>
-                                    <p className="text-gray-600">En cours de développement</p>
-                                </div>
-                            </div>
-                        } />
-                        
-                        {/* Favoris */}
-                        <Route path="/wishlist" element={
-                            <div className="min-h-screen flex items-center justify-center">
-                                <div className="text-center">
-                                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Page Favoris</h1>
-                                    <p className="text-gray-600">En cours de développement</p>
-                                </div>
-                            </div>
-                        } />
-                        
-                        {/* Recherche */}
-                        <Route path="/search" element={
-                            <div className="min-h-screen flex items-center justify-center">
-                                <div className="text-center">
-                                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Page Recherche</h1>
-                                    <p className="text-gray-600">En cours de développement</p>
-                                </div>
-                            </div>
-                        } />
-                        
-                        {/* Profil */}
-                        <Route path="/profile" element={
-                            <div className="min-h-screen flex items-center justify-center">
-                                <div className="text-center">
-                                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Page Profil</h1>
-                                    <p className="text-gray-600">En cours de développement</p>
-                                </div>
-                            </div>
-                        } />
-                        
-                        {/* Promotions */}
-                        <Route path="/promotions" element={
-                            <div className="min-h-screen flex items-center justify-center">
-                                <div className="text-center">
-                                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Page Promotions</h1>
-                                    <p className="text-gray-600">En cours de développement</p>
-                                </div>
-                            </div>
-                        } />
-                        
-                        {/* Toutes les autres routes redirigent vers la page d'accueil */}
-                        <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
-                </Suspense>
-            </Router>
-        </AppContext.Provider>
+        <AuthProvider>
+            <AppContext.Provider value={{ config, prefetchProduct }}>
+                <Router>
+                    <Suspense fallback={<PageLoader />}>
+                        <Routes>
+                            <Route path="/" element={<HomePage />} />
+                            <Route path="/shop" element={<ShopPage />} />
+                            <Route path="/products/:slug" element={<ProductDetailPage />} />
+                            <Route path="/categories/:slug" element={<CategoryPage />} />
+                            <Route path="/cart" element={<CartPage />} />
+                            <Route path="/wishlist" element={<WishlistPage />} />
+                            <Route path="/checkout" element={<CheckoutPage />} />
+                            <Route path="/checkout/success" element={<PaymentSuccess />} />
+                            <Route path="/profile" element={<ProfilePage />} />
+                            <Route path="/account" element={<AccountPage />} />
+                            <Route path="/orders" element={<OrdersPage />} />
+                            <Route path="/orders/:id" element={<OrderDetailPage />} />
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                        </Routes>
+                    </Suspense>
+                </Router>
+            </AppContext.Provider>
+        </AuthProvider>
     );
 };
 
@@ -188,14 +147,28 @@ const AppClient = () => {
 const container = document.getElementById("client-app");
 
 if (container) {
+    console.log("✅ App container trouvé, montage React...");
     // Éviter les doubles montages en développement
     if (!container._reactRootContainer) {
-        const root = createRoot(container);
-        container._reactRootContainer = root;
-        root.render(<AppClient />);
+        try {
+            const root = createRoot(container);
+            container._reactRootContainer = root;
+            root.render(<AppClient />);
+            window.reactMounted = true; // Signal pour timeout detector
+            console.log("✅ AppClient rendu avec succès");
+        } catch (error) {
+            console.error("❌ Erreur montage React:", error);
+            container.innerHTML = `
+                <div style="padding: 20px; text-align: center;">
+                    <h1>⚠️ Erreur de chargement</h1>
+                    <p>${error.message}</p>
+                    <p><button onclick="location.reload()">Rafraîchir</button></p>
+                </div>
+            `;
+        }
     }
 } else {
-    console.error('Container #client-app non trouvé dans le DOM');
+    console.error("❌ Container #client-app NOT FOUND");
 }
 
 export default AppClient;

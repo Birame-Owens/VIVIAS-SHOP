@@ -801,7 +801,7 @@ public function getPerformanceProduitsReport(Carbon $dateDebut, Carbon $dateFin)
                 'p.nom',
                 'p.nombre_vues',
                 DB::raw('COALESCE(SUM(ac.quantite), 0) as ventes'),
-                DB::raw('CASE WHEN p.nombre_vues > 0 THEN ROUND((COALESCE(SUM(ac.quantite), 0) / p.nombre_vues::float) * 100, 2) ELSE 0 END as taux_conversion')
+                DB::raw('CASE WHEN p.nombre_vues > 0 THEN CAST(ROUND(CAST((COALESCE(SUM(ac.quantite), 0)::numeric / p.nombre_vues::numeric) * 100 AS numeric), 2) AS float) ELSE 0 END as taux_conversion')
             ])
             ->groupBy('p.id', 'p.nom', 'p.nombre_vues')
             ->orderBy('ventes', 'desc')
@@ -873,21 +873,4 @@ private function analyserPaniersVsCommandes(Carbon $dateDebut, Carbon $dateFin):
     ];
 }
 
-private function getEvolutionVisiteurs(Carbon $dateDebut, Carbon $dateFin): array
-{
-    $evolution = [];
-    $current = $dateDebut->copy();
-    
-    while ($current->lte($dateFin)) {
-        $evolution[] = [
-            'date' => $current->format('Y-m-d'),
-            'visiteurs' => rand(50, 200),
-            'pages_vues' => rand(200, 800),
-            'conversions' => rand(2, 15)
-        ];
-        $current->addDay();
-    }
-    
-    return $evolution;
-}
 }

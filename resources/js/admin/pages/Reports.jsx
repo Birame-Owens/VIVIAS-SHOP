@@ -108,34 +108,26 @@ const Reports = () => {
             couleur: 'emerald'
         },
         {
-            id: 'stock',
-            nom: 'Rapport de Stock',
-            description: 'État des stocks et alertes',
-            icone: Warehouse,
-            couleur: 'orange'
-        },
-        {
             id: 'commandes',
             nom: 'Rapport des Commandes',
             description: 'Analyse des commandes par statut et période',
             icone: ShoppingCart,
             couleur: 'indigo'
         },
-         {
-        id: 'analytics',
-        nom: 'Analytics Web',
-        description: 'Visiteurs, sessions, sources de trafic',
-        icone: BarChart3,
-        couleur: 'teal'
-    },
-    {
-        id: 'performance-produits',
-        nom: 'Performance Produits',
-        description: 'Taux de conversion, produits consultés vs vendus',
-        icone: TrendingUp,
-        couleur: 'rose'
-    }
-       
+        {
+            id: 'analytics',
+            nom: 'Analytics Web',
+            description: 'Visiteurs, sessions, sources de trafic',
+            icone: BarChart3,
+            couleur: 'teal'
+        },
+        {
+            id: 'performance-produits',
+            nom: 'Performance Produits',
+            description: 'Taux de conversion, produits consultés vs vendus',
+            icone: TrendingUp,
+            couleur: 'rose'
+        }
     ];
 
     // Charger les données

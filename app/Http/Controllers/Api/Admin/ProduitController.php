@@ -144,6 +144,18 @@ class ProduitController extends Controller
         try {
             DB::beginTransaction();
 
+            // Debug: Vérifier ce qui est reçu
+            Log::info('📦 Création produit - Données reçues', [
+                'has_file_image_principale' => $request->hasFile('image_principale'),
+                'file_info' => $request->hasFile('image_principale') ? [
+                    'name' => $request->file('image_principale')->getClientOriginalName(),
+                    'mime' => $request->file('image_principale')->getMimeType(),
+                    'size' => $request->file('image_principale')->getSize(),
+                ] : 'Aucun fichier',
+                'all_files' => $request->allFiles(),
+                'nom_produit' => $request->input('nom')
+            ]);
+
             $validatedData = $request->validated();
             
             // Génération du slug
@@ -157,10 +169,13 @@ class ProduitController extends Controller
                 $counter++;
             }
 
-            // Gestion de l'image principale (optionnelle maintenant)
+            // Gestion de l'image principale (avec valeur par défaut)
             if ($request->hasFile('image_principale')) {
                 $imagePath = $request->file('image_principale')->store('produits', 'public');
                 $validatedData['image_principale'] = $imagePath;
+            } else {
+                // Image par défaut si aucune image n'est fournie
+                $validatedData['image_principale'] = 'produits/default-product.jpg';
             }
 
             // Traiter les données JSON

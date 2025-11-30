@@ -35,4 +35,36 @@ return [
         ],
     ],
 
+    // =================== FRONTEND URL ===================
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
+
+    // =================== STRIPE ===================
+    'stripe' => [
+        'key' => env('STRIPE_PUBLIC_KEY'),
+        'secret' => env('STRIPE_SECRET_KEY'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
+
+    // =================== TWILIO (WhatsApp) ===================
+    'twilio' => [
+        'sid' => env('TWILIO_SID'),
+        'token' => env('TWILIO_AUTH_TOKEN'),
+        'whatsapp_from' => env('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'),
+    ],
+
+    // =================== SHIPPING ===================
+    'shipping' => [
+        'free_threshold' => env('SHIPPING_FREE_THRESHOLD', 50000), // Livraison gratuite si > 50000 FCFA
+        'default_cost' => env('SHIPPING_DEFAULT_COST', 2500), // Coût par défaut
+    ],
+
+    // =================== NEXPAY (Wave & Orange Money) ===================
+    'nexpay' => [
+        'api_url' => env('NEXPAY_API_URL', 'https://pay.yourdomain.com'),
+        'write_key' => env('NEXPAY_WRITE_KEY'),
+        'read_key' => env('NEXPAY_READ_KEY'),
+        'webhook_secret' => env('NEXPAY_WEBHOOK_SECRET'),
+        'project_id' => env('NEXPAY_PROJECT_ID'),
+    ],
+
 ];

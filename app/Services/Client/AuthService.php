@@ -4,8 +4,10 @@ namespace App\Services\Client;
 use App\Models\Client;
 use App\Models\User;
 use App\Models\MesureClient;
+use App\Models\Panier;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -44,30 +46,27 @@ class AuthService
                 'ville' => $data['ville'] ?? 'Dakar',
                 'adresse_principale' => $data['adresse'] ?? null,
                 'user_id' => $user->id,
-                'type_client' => 'particulier',
+                'type_client' => 'nouveau',
                 'accepte_whatsapp' => $data['accepte_whatsapp'] ?? true,
                 'accepte_email' => $data['accepte_email'] ?? true,
                 'accepte_promotions' => $data['accepte_promotions'] ?? true
             ]);
 
-            // Générer le token
-            $token = $user->createToken('vivias_client_token')->plainTextToken;
+        // Générer le token
+        $token = $user->createToken('vivias_client_token')->plainTextToken;
 
-            DB::commit();
+        DB::commit();
 
-            return [
+        // Connecter l'utilisateur et migrer le panier
+        Auth::login($user);
+        app(CartService::class)->migrateGuestCart();            return [
                 'success' => true,
                 'message' => 'Inscription réussie',
                 'data' => [
                     'user' => [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'email' => $user->email
-                    ],
-                    'client' => [
                         'id' => $client->id,
-                        'nom' => $client->nom,
-                        'prenom' => $client->prenom,
+                        'nom_complet' => $client->prenom . ' ' . $client->nom,
+                        'email' => $client->email,
                         'telephone' => $client->telephone,
                         'ville' => $client->ville
                     ],
@@ -101,30 +100,27 @@ class AuthService
         // Révoquer les anciens tokens
         $user->tokens()->delete();
 
-        // Créer un nouveau token
-        $token = $user->createToken('vivias_client_token')->plainTextToken;
+    // Créer un nouveau token
+    $token = $user->createToken('vivias_client_token')->plainTextToken;
 
-        // Mettre à jour les stats de connexion
-        $user->update([
-            'derniere_connexion' => now(),
-            'nombre_connexions' => $user->nombre_connexions + 1
-        ]);
+    // Connecter l'utilisateur et migrer le panier
+    Auth::login($user);
+    app(CartService::class)->migrateGuestCart();
 
-        $client->update(['derniere_visite' => now()]);
+    // Mettre à jour les stats de connexion
+    $user->update([
+        'derniere_connexion' => now(),
+        'nombre_connexions' => $user->nombre_connexions + 1
+    ]);
 
-        return [
+    $client->update(['derniere_visite' => now()]);        return [
             'success' => true,
             'message' => 'Connexion réussie',
             'data' => [
                 'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email
-                ],
-                'client' => [
                     'id' => $client->id,
-                    'nom' => $client->nom,
-                    'prenom' => $client->prenom,
+                    'nom_complet' => $client->prenom . ' ' . $client->nom,
+                    'email' => $client->email,
                     'telephone' => $client->telephone,
                     'ville' => $client->ville,
                     'type_client' => $client->type_client,
@@ -176,7 +172,25 @@ class AuthService
         $user = Auth::user();
         
         if ($user) {
-            $user->currentAccessToken()->delete();
+            // Log pour audit (sans données sensibles)
+            \Log::info('User logout', ['user_id' => $user->id]);
+            
+            // Révoquer TOUS les tokens de l'utilisateur (sécurité)
+            $user->tokens()->delete();
+            
+            // IMPORTANT: Supprimer le panier de l'utilisateur
+            $panier = Panier::where('identifiant', 'user_' . $user->id)->first();
+            if ($panier) {
+                $panier->articles_paniers()->delete(); // Supprimer articles
+                $panier->delete(); // Supprimer panier
+            }
+            
+            // Déconnecter de la session
+            Auth::logout();
+            
+            // Régénérer l'ID de session pour éviter fixation de session
+            request()->session()->invalidate();
+            request()->session()->regenerateToken();
         }
 
         return ['success' => true, 'message' => 'Déconnexion réussie'];

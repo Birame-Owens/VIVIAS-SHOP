@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Admin\PaiementController;
 use App\Http\Controllers\Api\Admin\PromotionController;
 use App\Http\Controllers\Api\Admin\AvisClientController;
 use App\Http\Controllers\Api\Admin\RapportController;
+use App\Http\Controllers\Api\Admin\MessageGroupeController;
 use App\Http\Controllers\Api\Client\HomeController;
 
 use App\Http\Controllers\Api\Client\HomeController as ClientHomeController;
@@ -62,11 +63,9 @@ Route::prefix('admin')->group(function () {
         Route::get('/rapports/produits', [RapportController::class, 'produits']);
         Route::get('/rapports/clients', [RapportController::class, 'clients']);
         Route::get('/rapports/financier', [RapportController::class, 'financier']);
-        Route::get('/rapports/stock', [RapportController::class, 'stock']);
         Route::get('/rapports/commandes', [RapportController::class, 'commandes']);
         Route::get('/rapports/tailleurs', [RapportController::class, 'tailleurs']);
         Route::get('/rapports/tissus', [RapportController::class, 'tissus']);
-        // Dans la section rapports
         Route::get('/rapports/analytics', [RapportController::class, 'analytics']);
         Route::get('/rapports/performance-produits', [RapportController::class, 'performanceProduits']);
 
@@ -150,6 +149,13 @@ Route::prefix('admin')->group(function () {
         Route::post('/avis-clients/{avis}/toggle-verifie', [AvisClientController::class, 'toggleVerifie']);
         Route::apiResource('avis-clients', AvisClientController::class)->only(['index', 'show', 'destroy']);
 
+        // Messages Groupés
+        Route::prefix('messages')->group(function () {
+            Route::get('/groups', [MessageGroupeController::class, 'getClientGroups']);
+            Route::get('/clients', [MessageGroupeController::class, 'getGroupClients']);
+            Route::post('/send', [MessageGroupeController::class, 'sendGroupMessage']);
+        });
+
         
     });
     
@@ -185,8 +191,6 @@ Route::prefix('client')->group(function () {
     Route::get('/{id}/related', [ClientProductController::class, 'getRelated']);
     Route::post('/{id}/view', [ClientProductController::class, 'incrementViews']);
     Route::get('/{id}/whatsapp-data', [ClientProductController::class, 'getWhatsAppData']);
-
-    Route::get('/products/{slug}/page-data', [ProductController::class, 'getPageData']);
 });
     
     // =================== CATÉGORIES ===================
@@ -231,24 +235,56 @@ Route::prefix('client')->group(function () {
     // =================== AUTHENTIFICATION CLIENT ===================
     Route::prefix('auth')->group(function () {
         // Routes publiques
-        Route::post('/register', [ClientAuthController::class, 'register']);
-        Route::post('/login', [ClientAuthController::class, 'login']);
-        Route::post('/guest-checkout', [ClientAuthController::class, 'guestCheckout']);
+        Route::post('/register', [ClientAuthController::class, 'register'])->name('client.auth.register');
+        Route::post('/login', [ClientAuthController::class, 'login'])->name('client.auth.login');
+        Route::post('/guest-checkout', [ClientAuthController::class, 'guestCheckout'])->name('client.auth.guest-checkout');
         
         // Routes protégées
         Route::middleware(['auth:sanctum'])->group(function () {
-            Route::post('/logout', [ClientAuthController::class, 'logout']);
-            Route::get('/profile', [ClientAuthController::class, 'profile']);
-            Route::put('/profile', [ClientAuthController::class, 'updateProfile']);
-            Route::get('/measurements', [ClientAuthController::class, 'getMeasurements']);
-            Route::post('/measurements', [ClientAuthController::class, 'saveMeasurements']);
+            Route::post('/logout', [ClientAuthController::class, 'logout'])->name('client.auth.logout');
+            Route::get('/user', [ClientAuthController::class, 'profile'])->name('client.auth.user');
+            Route::get('/profile', [ClientAuthController::class, 'profile'])->name('client.auth.profile');
+            Route::put('/profile', [ClientAuthController::class, 'updateProfile'])->name('client.auth.update-profile');
+            Route::get('/measurements', [ClientAuthController::class, 'getMeasurements'])->name('client.auth.get-measurements');
+            Route::post('/measurements', [ClientAuthController::class, 'saveMeasurements'])->name('client.auth.save-measurements');
         });
     });
+
+    // =================== COMPTE CLIENT (DASHBOARD) ===================
+    Route::prefix('account')->middleware(['auth:sanctum'])->group(function () {
+        Route::get('/orders', [\App\Http\Controllers\Api\Client\AccountController::class, 'getOrders']);
+        Route::get('/orders/{orderId}', [\App\Http\Controllers\Api\Client\AccountController::class, 'getOrderDetails']);
+        Route::get('/invoices', [\App\Http\Controllers\Api\Client\AccountController::class, 'getInvoices']);
+        Route::get('/invoices/{invoiceId}/download', [\App\Http\Controllers\Api\Client\AccountController::class, 'downloadInvoice']);
+        Route::get('/profile', [\App\Http\Controllers\Api\Client\AccountController::class, 'getProfile']);
+    });
+
+    // =================== CHECKOUT & PAIEMENT ===================
+    Route::prefix('checkout')->group(function () {
+        Route::post('/create-order', [\App\Http\Controllers\Api\Client\CheckoutController::class, 'createOrder']);
+        Route::post('/payment/{orderNumber}', [\App\Http\Controllers\Api\Client\CheckoutController::class, 'initiatePayment']);
+        Route::get('/success', [\App\Http\Controllers\Api\Client\CheckoutController::class, 'success']);
+        Route::get('/cancel', [\App\Http\Controllers\Api\Client\CheckoutController::class, 'cancel']);
+    });
+    
+    // Route publique pour récupérer détails commande après paiement
+    Route::get('/commandes/{orderNumber}', [\App\Http\Controllers\Api\Client\CheckoutController::class, 'getOrderByNumber']);
+
+    // Webhook Stripe
+    Route::post('/stripe/webhook', [\App\Http\Controllers\Api\Client\StripeWebhookController::class, 'handle'])->name('stripe.webhook');
+    
+    // =================== NEXPAY (Wave & Orange Money) ===================
+    Route::prefix('nexpay')->group(function () {
+        Route::post('/initiate', [\App\Http\Controllers\Api\Client\NexPayController::class, 'initiate']);
+        Route::get('/status/{sessionId}', [\App\Http\Controllers\Api\Client\NexPayController::class, 'checkStatus']);
+        Route::get('/callback', [\App\Http\Controllers\Api\Client\NexPayController::class, 'callback']);
+    });
+    
+    // Webhook NexPay (hors groupe client pour éviter middleware)
+    Route::post('/webhook/nexpay', [\App\Http\Controllers\Api\Client\NexPayController::class, 'webhook']);
     
     // =================== NEWSLETTER ===================
     Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe']);
-    // Compatibilité avec l'existant
-    Route::post('/newsletter/subscribe', [HomeController::class, 'subscribeNewsletter']);
     
     // =================== CONFIGURATION SYSTÈME ===================
     Route::get('/config', function() {
@@ -257,7 +293,7 @@ Route::prefix('client')->group(function () {
             'data' => [
                 'company' => [
                     'name' => 'VIVIAS SHOP',
-                    'whatsapp' => config('app.whatsapp_number', '+221771397393'),
+                    'whatsapp' => config('app.admin_whatsapp', '+221784661412'),
                     'instagram' => config('app.instagram_url', 'https://instagram.com/viviasshop'),
                     'tiktok' => config('app.tiktok_url', 'https://tiktok.com/@viviasshop'),
                     'email' => config('app.contact_email', 'contact@viviasshop.sn'),
@@ -265,8 +301,8 @@ Route::prefix('client')->group(function () {
                 ],
                 'currency' => 'F CFA',
                 'shipping' => [
-                    'free_threshold' => 50000,
-                    'default_fee' => 2500
+                    'free_threshold' => env('SHIPPING_FREE_THRESHOLD', 50000),
+                    'default_fee' => env('SHIPPING_DEFAULT_COST', 2500)
                 ],
                 'features' => [
                     'guest_checkout' => true,
@@ -276,7 +312,9 @@ Route::prefix('client')->group(function () {
                     'dynamic_navigation' => true,
                     'product_carousel' => true,
                     'reviews' => true,
-                    'coupons' => true
+                    'coupons' => true,
+                    'auto_invoices' => true,
+                    'whatsapp_notifications' => true
                 ],
                 'limits' => [
                     'cart_max_items' => 50,
@@ -288,58 +326,3 @@ Route::prefix('client')->group(function () {
     });
     
 });
-
-// ================================================================
-// 📝 RÉSUMÉ DU SYSTÈME CRÉÉ
-// ================================================================
-
-/*
-🎉 SYSTÈME CLIENT VIVIAS SHOP COMPLET CRÉÉ !
-
-✅ SERVICES CRÉÉS:
-- NavigationService: Menu dynamique et aperçus catégories
-- ProductService: Gestion complète des produits avec images, recherche, etc.
-- CartService: Panier basé sur session avec coupons et WhatsApp
-- WishlistService: Favoris basés sur session
-- AuthService: Inscription, connexion, profils et mesures client
-- SearchService: Recherche avancée avec suggestions
-
-✅ CONTROLLERS CRÉÉS:
-- NavigationController: API pour navigation dynamique
-- ProductController: API complète produits avec carousel d'images
-- CartController: Gestion panier avec calculs automatiques
-- WishlistController: Gestion favoris
-- AuthController: Authentification et profils clients
-- SearchController: Recherche et suggestions
-- CategoryController: Gestion catégories
-- NewsletterController: Inscription newsletter
-
-✅ REQUESTS CRÉÉS:
-- CartRequest: Validation ajout/modification panier
-- WishlistRequest: Validation favoris
-- AuthRequest: Validation inscription/connexion/profil/mesures
-- NewsletterRequest: Validation newsletter
-- ProductRequest: Validation filtres produits
-
-✅ FONCTIONNALITÉS IMPLÉMENTÉES:
-🛒 Panier avec session (pas besoin de connexion)
-❤️ Favoris avec session
-🔍 Recherche dynamique avec suggestions
-🧩 Navigation avec aperçus au survol
-📱 WhatsApp avec photos produits
-🎫 Système de coupons/promotions
-📊 Carousel d'images produits
-👤 Inscription/connexion clients
-📏 Système de mesures client
-🏷️ Badges dynamiques (promo, nouveau, populaire)
-💰 Calculs automatiques (taxes, livraison, remises)
-
-🚀 PRÊT POUR:
-- Interface React dynamique
-- Paiements Wave/Stripe (prochaine étape)
-- Système de commandes
-- Reviews clients
-- Notifications en temps réel
-
-TOUTES LES ROUTES SONT MAINTENANT PRÊTES À ÊTRE AJOUTÉES !
-*/

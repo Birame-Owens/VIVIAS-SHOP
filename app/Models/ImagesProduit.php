@@ -69,6 +69,25 @@ class ImagesProduit extends Model
 		'couleur_dominante'
 	];
 
+	protected $appends = ['url'];
+
+	public function getUrlAttribute()
+	{
+		$chemin = $this->chemin_moyen ?: $this->chemin_original;
+		
+		if (!$chemin) {
+			return null;
+		}
+		
+		// Si c'est déjà une URL complète
+		if (str_starts_with($chemin, 'http')) {
+			return $chemin;
+		}
+		
+		// Sinon, construire le chemin avec storage
+		return asset('storage/' . $chemin);
+	}
+
 	public function produit()
 	{
 		return $this->belongsTo(Produit::class);

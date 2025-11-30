@@ -163,85 +163,38 @@ const Dashboard = () => {
             </div>
 
             {/* Statistiques principales */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <StatCard
-                    title="Chiffre d'Affaires"
-                    value={loading ? "---" : `${dashboardData?.overview?.chiffre_affaires || 109000} F CFA`}
-                    change={dashboardData?.overview?.evolution_ca || "0"}
-                    changeType="positive"
+                    title="Chiffre d'Affaires (Mois)"
+                    value={loading ? "---" : `${Math.round(dashboardData?.overview?.chiffre_affaires_mois || 0).toLocaleString()} FCFA`}
+                    change={dashboardData?.sales?.growth_percentage ? `${dashboardData.sales.growth_percentage > 0 ? '+' : ''}${dashboardData.sales.growth_percentage}% vs mois dernier` : null}
+                    changeType={dashboardData?.sales?.is_positive_growth ? "positive" : "negative"}
                     icon={DollarSign}
                     color="bg-green-500"
                     loading={loading}
                 />
                 <StatCard
-                    title="Commandes (mois)"
-                    value={loading ? "---" : dashboardData?.overview?.commandes_mois || "3"}
-                    change={dashboardData?.overview?.evolution_commandes || "1 en attente"}
-                    changeType="negative"
+                    title="Commandes (Mois)"
+                    value={loading ? "---" : (dashboardData?.orders?.total_month || 0)}
+                    change={dashboardData?.orders?.pending > 0 ? `${dashboardData.orders.pending} en attente` : "Aucune commande en attente"}
+                    changeType={dashboardData?.orders?.pending > 0 ? "negative" : "positive"}
                     icon={ShoppingCart}
                     color="bg-blue-500"
                     loading={loading}
                 />
                 <StatCard
                     title="Total Clients"
-                    value={loading ? "---" : dashboardData?.overview?.total_clients || "3"}
-                    change={dashboardData?.overview?.nouveaux_clients || "+2 ce mois"}
+                    value={loading ? "---" : (dashboardData?.overview?.total_clients || 0)}
+                    change={dashboardData?.overview?.nouveaux_clients_mois > 0 ? `+${dashboardData.overview.nouveaux_clients_mois} ce mois` : "Aucun nouveau client"}
                     changeType="positive"
                     icon={Users}
                     color="bg-indigo-500"
-                    loading={loading}
-                />
-                <StatCard
-                    title="Stock Total"
-                    value={loading ? "---" : dashboardData?.overview?.stock_total || "56"}
-                    change={dashboardData?.overview?.stock_alerte || "1 en alerte"}
-                    changeType="negative"
-                    icon={Package}
-                    color="bg-orange-500"
                     loading={loading}
                 />
             </div>
 
             {/* Contenu principal */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Alertes Stock */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                            <AlertTriangle className="w-5 h-5 text-orange-500 mr-2" />
-                            Stock Faible
-                        </h2>
-                        <span className="bg-orange-100 text-orange-700 text-xs font-medium px-2 py-1 rounded-full">
-                            {dashboardData?.stock_faible?.length || 1}
-                        </span>
-                    </div>
-                    
-                    <div className="space-y-3">
-                        {loading ? (
-                            <div className="space-y-3">
-                                {[1, 2].map(i => (
-                                    <div key={i} className="animate-pulse">
-                                        <div className="h-16 bg-gray-200 rounded-lg"></div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : dashboardData?.stock_faible?.length > 0 ? (
-                            dashboardData.stock_faible.map((product, index) => (
-                                <ProductItem key={index} product={product} type="stock" />
-                            ))
-                        ) : (
-                            <ProductItem 
-                                product={{
-                                    nom: "Robe Cérémonie Deluxe",
-                                    categorie: "Robes Traditionnelles",
-                                    quantite: 1
-                                }} 
-                                type="stock" 
-                            />
-                        )}
-                    </div>
-                </div>
-
                 {/* Top Produits */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-6">
@@ -250,32 +203,79 @@ const Dashboard = () => {
                             Top Produits
                         </h2>
                         <span className="bg-green-100 text-green-700 text-xs font-medium px-2 py-1 rounded-full">
-                            {dashboardData?.top_produits?.length || 1}
+                            {dashboardData?.popular_products?.length || 0}
                         </span>
                     </div>
                     
                     <div className="space-y-3">
                         {loading ? (
                             <div className="space-y-3">
-                                {[1, 2].map(i => (
+                                {[1, 2, 3].map(i => (
                                     <div key={i} className="animate-pulse">
                                         <div className="h-16 bg-gray-200 rounded-lg"></div>
                                     </div>
                                 ))}
                             </div>
-                        ) : dashboardData?.top_produits?.length > 0 ? (
-                            dashboardData.top_produits.map((product, index) => (
-                                <ProductItem key={index} product={product} type="sales" />
+                        ) : dashboardData?.popular_products?.length > 0 ? (
+                            dashboardData.popular_products.slice(0, 5).map((product, index) => (
+                                <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                    <div className="flex-1">
+                                        <h4 className="font-medium text-gray-900">{product.nom}</h4>
+                                        <p className="text-sm text-gray-500">{product.category}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-sm font-medium text-green-600">
+                                            {product.ventes} vente{product.ventes > 1 ? 's' : ''}
+                                        </span>
+                                        <p className="text-xs text-gray-500">{Math.round(product.chiffre_affaires).toLocaleString()} FCFA</p>
+                                    </div>
+                                </div>
                             ))
                         ) : (
-                            <ProductItem 
-                                product={{
-                                    nom: "Robe Boubou Grand Boubou",
-                                    categorie: "Robes Traditionnelles • 45 000 F CFA",
-                                    ventes: 1
-                                }} 
-                                type="sales" 
-                            />
+                            <p className="text-gray-500 text-center py-8">Aucune vente récente</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Commandes Récentes */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                            <ShoppingCart className="w-5 h-5 text-blue-500 mr-2" />
+                            État des Commandes
+                        </h2>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        {loading ? (
+                            <div className="space-y-3">
+                                {[1, 2, 3].map(i => (
+                                    <div key={i} className="animate-pulse">
+                                        <div className="h-12 bg-gray-200 rounded-lg"></div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : dashboardData?.orders ? (
+                            <>
+                                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                                    <span className="text-sm font-medium text-gray-700">En attente</span>
+                                    <span className="text-lg font-bold text-yellow-600">{dashboardData.orders.pending}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                    <span className="text-sm font-medium text-gray-700">Confirmées</span>
+                                    <span className="text-lg font-bold text-blue-600">{dashboardData.orders.confirmed}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                                    <span className="text-sm font-medium text-gray-700">En production</span>
+                                    <span className="text-lg font-bold text-purple-600">{dashboardData.orders.in_production}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                    <span className="text-sm font-medium text-gray-700">Livrées (ce mois)</span>
+                                    <span className="text-lg font-bold text-green-600">{dashboardData.orders.completed}</span>
+                                </div>
+                            </>
+                        ) : (
+                            <p className="text-gray-500 text-center py-8">Aucune donnée disponible</p>
                         )}
                     </div>
                 </div>
@@ -303,15 +303,21 @@ const Dashboard = () => {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {dashboardData?.activite_recente?.length > 0 ? (
-                                dashboardData.activite_recente.map((activite, index) => (
+                            {dashboardData?.recent_activities?.length > 0 ? (
+                                dashboardData.recent_activities.map((activite, index) => (
                                     <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                                        <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
-                                            <Activity className="w-5 h-5 text-white" />
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                            activite.type === 'commande' ? 'bg-blue-500' : 'bg-indigo-500'
+                                        }`}>
+                                            {activite.type === 'commande' ? (
+                                                <ShoppingCart className="w-5 h-5 text-white" />
+                                            ) : (
+                                                <Users className="w-5 h-5 text-white" />
+                                            )}
                                         </div>
                                         <div className="flex-1">
-                                            <p className="text-sm font-medium text-gray-900">{activite.message}</p>
-                                            <p className="text-xs text-gray-500">{activite.date}</p>
+                                            <p className="text-sm font-medium text-gray-900">{activite.title}</p>
+                                            <p className="text-xs text-gray-500">{activite.description}</p>
                                         </div>
                                     </div>
                                 ))

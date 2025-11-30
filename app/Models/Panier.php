@@ -59,6 +59,7 @@ class Panier extends Model
 	];
 
 	protected $fillable = [
+		'identifiant',
 		'session_id',
 		'client_id',
 		'sous_total',

@@ -16,17 +16,16 @@ class HomeService
 {
     /**
      * Obtenir toutes les données de la page d'accueil
+     * Simplifié pour afficher uniquement produits populaires et nouveautés
      */
     public function getHomeData(): array
     {
         return [
             'hero_banner' => $this->getHeroBanner(),
-            'featured_products' => $this->getFeaturedProducts(8),
-            'new_arrivals' => $this->getNewArrivals(8),
-            'products_on_sale' => $this->getProductsOnSale(8),
-            'categories_preview' => $this->getCategoriesPreview(),
-            'active_promotions' => $this->getActivePromotions(),
-            'testimonials' => $this->getFeaturedTestimonials(6),
+            'categories_preview' => $this->getCategoriesPreview(), // Catégories en cercles
+            'featured_products' => $this->getFeaturedProducts(8), // Produits populaires
+            'new_arrivals' => $this->getNewArrivals(8), // Nouveautés
+            'testimonials' => $this->getFeaturedTestimonials(6), // Avis clients
             'shop_stats' => $this->getPublicShopStats(),
             'flash_sale' => $this->getFlashSale()
         ];
@@ -68,18 +67,17 @@ class HomeService
     }
 
     /**
-     * Produits en vedette
+     * Produits populaires (marqués en admin)
      */
     public function getFeaturedProducts(int $limit = 8): array
     {
         $produits = Produit::where('est_visible', true)
             ->where('est_populaire', true)
-            ->orWhere('note_moyenne', '>=', 4)
-            ->orWhere('nombre_ventes', '>=', 10)
             ->with(['category', 'images_produits' => function($q) {
                 $q->where('est_principale', true)->orWhere('ordre_affichage', 1);
             }])
-            ->inRandomOrder()
+            ->orderByDesc('nombre_ventes')
+            ->orderByDesc('note_moyenne')
             ->limit($limit)
             ->get();
 
@@ -89,15 +87,12 @@ class HomeService
     }
 
     /**
-     * Nouveautés (produits récents)
+     * Nouveautés (produits marqués comme nouveauté en admin)
      */
     public function getNewArrivals(int $limit = 8): array
     {
         $produits = Produit::where('est_visible', true)
-            ->where(function($query) {
-                $query->where('est_nouveaute', true)
-                    ->orWhere('created_at', '>=', now()->subDays(30));
-            })
+            ->where('est_nouveaute', true)
             ->with(['category', 'images_produits' => function($q) {
                 $q->where('est_principale', true)->orWhere('ordre_affichage', 1);
             }])
@@ -432,8 +427,17 @@ class HomeService
      */
     private function formatProductForClient(Produit $produit, array $options = []): array
 {
+    // Chercher l'image dans images_produits, sinon utiliser image_principale, sinon placeholder
     $image = $produit->images_produits->first();
     $isCompact = $options['compact'] ?? false;
+
+    $imageUrl = asset('assets/images/placeholder.jpg');
+    
+    if ($image && $image->chemin_original) {
+        $imageUrl = asset('storage/' . $image->chemin_original);
+    } elseif ($produit->image_principale) {
+        $imageUrl = asset('storage/' . $produit->image_principale);
+    }
 
     $data = [
         'id' => $produit->id,
@@ -443,9 +447,7 @@ class HomeService
         'prix_promo' => $produit->prix_promo,
         'prix_affiche' => $produit->prix_promo ?: $produit->prix,
         'en_promo' => $produit->prix_promo !== null,
-        'image' => $image && $image->chemin_original ? 
-            asset('storage/' . $image->chemin_original) : 
-            asset('images/placeholder-product.jpg'),
+        'image' => $imageUrl,
         'url' => '/products/' . $produit->slug,
         'est_nouveaute' => $produit->est_nouveaute,
         'est_populaire' => $produit->est_populaire
@@ -515,7 +517,7 @@ class HomeService
         $message .= "Merci ! 🙏";
 
         // Numéro WhatsApp de la boutique (à configurer)
-        $whatsappNumber = config('app.whatsapp_number', '221771397393');
+        $whatsappNumber = config('app.whatsapp_number', '221784661412');
         
         return "https://wa.me/{$whatsappNumber}?text=" . urlencode($message);
     }
