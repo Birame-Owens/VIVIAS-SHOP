@@ -207,49 +207,49 @@ class ApiService {
 
   // =================== CONFIGURATION ===================
   getConfig() {
-    return this.cachedRequest('config', '/config');
+    return this.cachedRequest('config', '/client/config');
   }
 
   // =================== PAGE D'ACCUEIL ===================
   getHomeData() {
-    return this.cachedRequest('home', '/home');
+    return this.cachedRequest('home', '/client/home');
   }
 
   getFeaturedProducts() {
-    return this.cachedRequest('home', '/featured-products', 'featured');
+    return this.cachedRequest('home', '/client/featured-products', 'featured');
   }
 
   getNewArrivals() {
-    return this.cachedRequest('home', '/new-arrivals', 'new');
+    return this.cachedRequest('home', '/client/new-arrivals', 'new');
   }
 
   getProductsOnSale() {
-    return this.cachedRequest('home', '/products-on-sale', 'sale');
+    return this.cachedRequest('home', '/client/products-on-sale', 'sale');
   }
 
   getCategoriesPreview() {
-    return this.cachedRequest('categories', '/categories-preview', 'preview');
+    return this.cachedRequest('categories', '/client/categories-preview', 'preview');
   }
 
   getActivePromotions() {
-    return this.request('/active-promotions');
+    return this.request('/client/active-promotions');
   }
 
   getShopStats() {
-    return this.cachedRequest('home', '/shop-stats', 'stats');
+    return this.cachedRequest('home', '/client/shop-stats', 'stats');
   }
 
   getTestimonials() {
-    return this.cachedRequest('home', '/testimonials', 'testimonials');
+    return this.cachedRequest('home', '/client/testimonials', 'testimonials');
   }
 
   // =================== NAVIGATION ===================
   getMainMenu() {
-    return this.cachedRequest('categories', '/navigation/menu', 'menu');
+    return this.cachedRequest('categories', '/client/navigation/menu', 'menu');
   }
 
   getCategoryPreview(slug) {
-    return this.cachedRequest('categories', `/navigation/categories/${slug}/preview`, slug);
+    return this.cachedRequest('categories', `/client/navigation/categories/${slug}/preview`, slug);
   }
 
   // =================== PRODUITS ===================
@@ -271,27 +271,27 @@ class ApiService {
   }
 
   getProductBySlug(slug) {
-    return this.cachedRequest('product', `/products/${slug}`, slug);
+    return this.cachedRequest('product', `/client/products/${slug}`, slug);
   }
 
   getProductImages(productId) {
-    return this.cachedRequest('product', `/products/${productId}/images`, `images_${productId}`);
+    return this.cachedRequest('product', `/client/products/${productId}/images`, `images_${productId}`);
   }
 
   getRelatedProducts(productId) {
-    return this.cachedRequest('product', `/products/${productId}/related`, `related_${productId}`);
+    return this.cachedRequest('product', `/client/products/${productId}/related`, `related_${productId}`);
   }
 
   incrementProductViews(productId) {
-    return this.request(`/products/${productId}/view`, { method: 'POST' });
+    return this.request(`/client/products/${productId}/view`, { method: 'POST' });
   }
 
   getProductWhatsAppData(productId) {
-    return this.request(`/products/${productId}/whatsapp-data`);
+    return this.request(`/client/products/${productId}/whatsapp-data`);
   }
 
   getProductPageData(slug) {
-    return this.cachedRequest('product', `/products/${slug}/page-data`, slug);
+    return this.cachedRequest('product', `/client/products/${slug}/page-data`, slug);
   }
   // =================== CATÉGORIES ===================
   getCategories() {
@@ -311,12 +311,12 @@ class ApiService {
   // =================== RECHERCHE ===================
   search(query, filters = {}) {
     const params = new URLSearchParams({ q: query, ...filters }).toString();
-    return this.request(`/search?${params}`);
+    return this.request(`/client/search?${params}`);
   }
 
   getSearchSuggestions(query) {
     const normalized = query.toLowerCase().trim();
-    return this.cachedRequest('search', `/search/suggestions?q=${encodeURIComponent(query)}`, normalized);
+    return this.cachedRequest('search', `/client/search/suggestions?q=${encodeURIComponent(query)}`, normalized);
   }
 
   quickSearch(query) {
@@ -324,30 +324,30 @@ class ApiService {
       return Promise.resolve({ success: true, data: { produits: [], categories: [] } });
     }
     const normalized = query.toLowerCase().trim();
-    return this.cachedRequest('search', `/search/quick?q=${encodeURIComponent(query)}`, normalized);
+    return this.cachedRequest('search', `/client/search/quick?q=${encodeURIComponent(query)}`, normalized);
   }
 
   // =================== PANIER (Pas de cache) ===================
   getCart() {
-    return this.request('/cart');
+    return this.request('/client/cart');
   }
 
   addToCart(productId, quantity = 1, options = {}) {
-    return this.request('/cart/add', {
+    return this.request('/client/cart/add', {
       method: 'POST',
       body: JSON.stringify({ product_id: productId, quantity, ...options }),
     });
   }
 
   updateCartItem(itemId, quantity) {
-    return this.request(`/cart/update/${itemId}`, {
+    return this.request(`/client/cart/update/${itemId}`, {
       method: 'PUT',
       body: JSON.stringify({ quantity }),
     });
   }
 
   removeCartItem(itemId) {
-    return this.request(`/cart/remove/${itemId}`, {
+    return this.request(`/client/cart/remove/${itemId}`, {
       method: 'DELETE',
     });
   }
@@ -357,110 +357,110 @@ class ApiService {
   }
 
   clearCart() {
-    return this.request('/cart/clear', {
+    return this.request('/client/cart/clear', {
       method: 'DELETE',
     });
   }
 
   getCartCount() {
-    return this.request('/cart/count');
+    return this.request('/client/cart/count');
   }
 
   getCartTotal() {
-    return this.request('/cart/total');
+    return this.request('/client/cart/total');
   }
 
   generateCartWhatsAppMessage() {
-    return this.request('/cart/whatsapp', {
+    return this.request('/client/cart/whatsapp', {
       method: 'POST',
     });
   }
 
   applyCoupon(code) {
-    return this.request('/cart/apply-coupon', {
+    return this.request('/client/cart/apply-coupon', {
       method: 'POST',
       body: JSON.stringify({ code }),
     });
   }
 
   removeCoupon() {
-    return this.request('/cart/remove-coupon', {
+    return this.request('/client/cart/remove-coupon', {
       method: 'DELETE',
     });
   }
 
   // =================== FAVORIS (Pas de cache) ===================
   getWishlist() {
-    return this.request('/wishlist');
+    return this.request('/client/wishlist');
   }
 
   addToWishlist(productId) {
-    return this.request('/wishlist/add', {
+    return this.request('/client/wishlist/add', {
       method: 'POST',
       body: JSON.stringify({ product_id: productId }),
     });
   }
 
   removeFromWishlist(productId) {
-    return this.request(`/wishlist/remove/${productId}`, {
+    return this.request(`/client/wishlist/remove/${productId}`, {
       method: 'DELETE',
     });
   }
 
   clearWishlist() {
-    return this.request('/wishlist/clear', {
+    return this.request('/client/wishlist/clear', {
       method: 'DELETE',
     });
   }
 
   getWishlistCount() {
-    return this.request('/wishlist/count');
+    return this.request('/client/wishlist/count');
   }
 
   moveWishlistItemToCart(productId) {
-    return this.request(`/wishlist/move-to-cart/${productId}`, {
+    return this.request(`/client/wishlist/move-to-cart/${productId}`, {
       method: 'POST',
     });
   }
 
   checkProductInWishlist(productId) {
-    return this.request(`/wishlist/check/${productId}`);
+    return this.request(`/client/wishlist/check/${productId}`);
   }
 
   // =================== AUTHENTIFICATION ===================
   register(data) {
-    return this.request('/auth/register', {
+    return this.request('/client/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   login(email, password) {
-    return this.request('/auth/login', {
+    return this.request('/client/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
   }
 
   guestCheckout(data) {
-    return this.request('/auth/guest-checkout', {
+    return this.request('/client/auth/guest-checkout', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   logout() {
-    return this.request('/auth/logout', {
+    return this.request('/client/auth/logout', {
       method: 'POST',
     });
   }
 
   getProfile() {
-    return this.request('/account/profile');
+    return this.request('/client/account/profile');
   }
 
   updateProfile(data) {
-    return this.request('/account/profile', {
+    return this.request('/client/account/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -468,27 +468,27 @@ class ApiService {
 
   // =================== COMPTE CLIENT ===================
   getOrders() {
-    return this.request('/account/orders');
+    return this.request('/client/account/orders');
   }
 
   getOrderDetails(orderNumber) {
-    return this.request(`/account/orders/${orderNumber}`);
+    return this.request(`/client/account/orders/${orderNumber}`);
   }
 
   getInvoices() {
-    return this.request('/account/invoices');
+    return this.request('/client/account/invoices');
   }
 
   downloadInvoice(invoiceId) {
-    return this.request(`/account/invoices/${invoiceId}/download`);
+    return this.request(`/client/account/invoices/${invoiceId}/download`);
   }
 
   getMeasurements() {
-    return this.request('/auth/measurements');
+    return this.request('/client/auth/measurements');
   }
 
   saveMeasurements(data) {
-    return this.request('/auth/measurements', {
+    return this.request('/client/auth/measurements', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -496,21 +496,21 @@ class ApiService {
 
   // =================== AUTHENTIFICATION ===================
   login(credentials) {
-    return this.request('/auth/login', {
+    return this.request('/client/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
   }
 
   register(userData) {
-    return this.request('/auth/register', {
+    return this.request('/client/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
   }
 
   logout() {
-    return this.request('/auth/logout', {
+    return this.request('/client/auth/logout', {
       method: 'POST',
     }).finally(() => {
       // Nettoyer le cache et le token
@@ -520,12 +520,12 @@ class ApiService {
   }
 
   getCurrentUser() {
-    return this.request('/auth/user');
+    return this.request('/client/auth/user');
   }
 
   // =================== NEWSLETTER ===================
   subscribeNewsletter(email, data = {}) {
-    return this.request('/newsletter/subscribe', {
+    return this.request('/client/newsletter/subscribe', {
       method: 'POST',
       body: JSON.stringify({ email, ...data }),
     });
