@@ -25,7 +25,7 @@ NexPay est votre passerelle de paiement locale pour **Wave** et **Orange Money**
 
 ### Configuration .env ✅
 ```env
-NEXPAY_API_URL=http://localhost:9090
+NEXPAY_API_URL=http://localhost:9000
 NEXPAY_WRITE_KEY=write
 NEXPAY_READ_KEY=read
 NEXPAY_WEBHOOK_SECRET=nexpay_webhook_secret_123456789
@@ -54,7 +54,7 @@ Si le container n'existe pas, créer et démarrer :
 # Exemple avec l'image officielle NexPay
 docker run -d `
   --name nexpay-server `
-  -p 9090:9090 `
+  -p 9000:9000 `
   -e WRITE_KEY=write `
   -e READ_KEY=read `
   -e PROJECT_ID=cmihhnx3p0003qw2tvnh9ymeo `
@@ -64,10 +64,10 @@ docker run -d `
 ### Étape 3 : Vérifier que NexPay Est Accessible
 ```powershell
 # Tester l'API health check
-Invoke-WebRequest -Uri 'http://localhost:9090/health' -UseBasicParsing
+Invoke-WebRequest -Uri 'http://localhost:9000/api/health' -UseBasicParsing
 
 # Ou avec curl si disponible
-curl http://localhost:9090/health
+curl http://localhost:9000/api/health
 ```
 
 **Réponse attendue** :
@@ -95,7 +95,7 @@ curl http://localhost:9090/health
    └─ phone: "765923402"
 
 3. Laravel → NexPayService->createPaymentSession()
-   └─ POST http://localhost:9090/api/v1/payment/initiate
+   └─ POST http://localhost:9000/api/v1/payment/initiate
    └─ Données envoyées :
       {
         "amount": 17500,
@@ -181,7 +181,7 @@ docker logs nexpay-server -f --tail 50
 
 ## 🔧 Troubleshooting
 
-### Problème 1 : "Connection refused" sur localhost:9090
+### Problème 1 : "Connection refused" sur localhost:9000
 
 **Cause** : Docker Desktop n'est pas démarré ou container NexPay arrêté
 
@@ -227,7 +227,7 @@ $body = @{
     client_reference = "TEST-001"
 } | ConvertTo-Json
 
-Invoke-RestMethod -Uri 'http://localhost:9090/api/v1/payment/initiate' `
+Invoke-RestMethod -Uri 'http://localhost:9000/api/v1/payment/initiate' `
   -Method POST `
   -Headers @{'x-api-key'='write'; 'Content-Type'='application/json'} `
   -Body $body
@@ -265,8 +265,8 @@ Si Docker ne démarre pas, tu peux tester avec **Stripe uniquement** :
 |---------|-----|-------------|
 | **Laravel API** | http://192.168.1.5:8000 | Backend |
 | **Frontend** | http://192.168.1.5:5173 | React |
-| **NexPay** | http://localhost:9090 | Passerelle paiement |
-| **NexPay Health** | http://localhost:9090/health | Test connexion |
+| **NexPay** | http://localhost:9000 | Passerelle paiement |
+| **NexPay Health** | http://localhost:9000/api/health | Test connexion |
 | **Checkout** | http://192.168.1.5:5173/checkout | Page paiement |
 
 ## 📝 Commandes Utiles
@@ -293,7 +293,7 @@ Invoke-WebRequest -Uri 'http://192.168.1.5:8000/api/client/config' -UseBasicPars
 Invoke-WebRequest -Uri 'http://192.168.1.5:5173' -UseBasicParsing
 
 # NexPay
-Invoke-WebRequest -Uri 'http://localhost:9090/health' -UseBasicParsing
+Invoke-WebRequest -Uri 'http://localhost:9000/api/health' -UseBasicParsing
 ```
 
 ## ✅ Checklist de Test

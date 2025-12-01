@@ -53,7 +53,6 @@ class NexPayService
                 'provider' => $provider,
             ],
             'successUrl' => config('services.frontend_url') . "/checkout/success?order={$commande->numero_commande}",
-            'cancelUrl' => config('services.frontend_url') . "/checkout/cancel?order={$commande->numero_commande}",
             'provider' => $provider === 'orange_money' ? 'om' : 'wave',
         ];
 
@@ -61,7 +60,7 @@ class NexPayService
             $response = Http::withHeaders([
                 'x-api-key' => $this->writeKey,
                 'Content-Type' => 'application/json',
-            ])->post("{$this->apiUrl}/api/v1/payment/initiate", $payload);
+            ])->post("{$this->apiUrl}/payment/initiate", $payload);
 
             if (!$response->successful()) {
                 Log::error('NexPay payment initiation failed', [
@@ -103,7 +102,7 @@ class NexPayService
             $response = Http::withHeaders([
                 'x-api-key' => $this->readKey,
             ])->timeout(65) // Long polling jusqu'à 60s
-              ->get("{$this->apiUrl}/api/v1/payment/session/{$sessionId}/status");
+              ->get("{$this->apiUrl}/payment/session/{$sessionId}/status");
 
             if (!$response->successful()) {
                 throw new Exception('Payment status check failed');
@@ -131,7 +130,7 @@ class NexPayService
         try {
             $response = Http::withHeaders([
                 'x-api-key' => $this->readKey,
-            ])->get("{$this->apiUrl}/api/v1/payment/session/{$sessionId}");
+            ])->get("{$this->apiUrl}/payment/session/{$sessionId}");
 
             if (!$response->successful()) {
                 throw new Exception('Session details fetch failed');
