@@ -97,7 +97,7 @@ const WishlistPage = () => {
   const handleMoveToCart = async (productId) => {
     try {
       setIsProcessing(true);
-      const response = await api.moveWishlistToCart(productId);
+      const response = await api.moveWishlistItemToCart(productId);
       if (response.success) {
         setWishlistItems(prev => prev.filter(item => item.product.id !== productId));
         setCartCount(prev => prev + 1);

@@ -19,13 +19,17 @@ class SendOrderConfirmationEmailJob implements ShouldQueue
     public $timeout = 30;
 
     protected $commande;
+    protected $temporaryPassword;
+    protected $isNewAccount;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(Commande $commande)
+    public function __construct(Commande $commande, $temporaryPassword = null, $isNewAccount = false)
     {
         $this->commande = $commande;
+        $this->temporaryPassword = $temporaryPassword;
+        $this->isNewAccount = $isNewAccount;
     }
 
     /**
@@ -39,14 +43,21 @@ class SendOrderConfirmationEmailJob implements ShouldQueue
             Mail::send('emails.order-confirmation', [
                 'commande' => $commande,
                 'client' => $commande->client,
+                'temporaryPassword' => $this->temporaryPassword,
+                'isNewAccount' => $this->isNewAccount,
             ], function ($message) use ($commande) {
+                $subject = $this->isNewAccount 
+                    ? "✅ Bienvenue ! Commande N°{$commande->numero_commande} confirmée - VIVIAS SHOP"
+                    : "✅ Commande confirmée N°{$commande->numero_commande} - VIVIAS SHOP";
+                    
                 $message->to($commande->client->email, $commande->client->prenom . ' ' . $commande->client->nom)
-                    ->subject("✅ Commande confirmée N°{$commande->numero_commande} - VIVIAS SHOP");
+                    ->subject($subject);
             });
 
             Log::info('Email confirmation commande envoyé', [
                 'commande_id' => $commande->id,
                 'email' => $commande->client->email,
+                'is_new_account' => $this->isNewAccount,
             ]);
 
         } catch (\Exception $e) {

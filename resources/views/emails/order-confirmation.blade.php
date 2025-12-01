@@ -135,6 +135,44 @@
                         </td>
                     </tr>
 
+                    @if($isNewAccount && $temporaryPassword)
+                    {{-- Section Compte Créé --}}
+                    <tr>
+                        <td style="padding: 0 40px 40px 40px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FFF9E6; padding: 30px; border-left: 4px solid #F59E0B;">
+                                <tr>
+                                    <td align="center">
+                                        <h3 style="margin: 0 0 15px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #B45309;">🎉 Votre Compte Est Créé !</h3>
+                                        <p style="margin: 0 0 20px 0; font-size: 13px; line-height: 20px; color: #4A5568;">
+                                            Nous avons automatiquement créé un compte pour vous afin de faciliter vos prochains achats et le suivi de vos commandes.
+                                        </p>
+                                        
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FFFFFF; padding: 20px; margin-bottom: 20px;">
+                                            <tr>
+                                                <td>
+                                                    <p style="margin: 0 0 10px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888888;">Identifiant</p>
+                                                    <p style="margin: 0 0 15px 0; font-size: 14px; font-weight: bold; color: #1A1A1A;">{{ $client->email }}</p>
+                                                    
+                                                    <p style="margin: 0 0 10px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888888;">Mot de Passe Temporaire</p>
+                                                    <p style="margin: 0; font-size: 18px; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 2px; color: #10b981; background-color: #F0FDF4; padding: 10px; text-align: center; border: 1px dashed #10b981;">{{ $temporaryPassword }}</p>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <p style="margin: 0 0 15px 0; font-size: 12px; color: #DC2626; font-weight: bold;">
+                                            ⚠️ Changez ce mot de passe dès votre première connexion
+                                        </p>
+
+                                        <a href="{{ config('app.url') }}/login" style="background-color: #10b981; color: #FFFFFF; display: inline-block; padding: 12px 30px; text-decoration: none; text-transform: uppercase; font-size: 11px; letter-spacing: 2px; font-weight: bold;">
+                                            Se Connecter Maintenant
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    @endif
+
                     <tr>
                         <td style="padding: 0 40px 40px 40px; background-color: #FDFBF7;">
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">

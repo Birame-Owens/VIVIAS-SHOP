@@ -57,8 +57,8 @@ class CheckoutService
     }
 
     /**
-     * Obtenir client existant ou créer client invité
-     * OPTIMISÉ: Guest checkout sans inscription obligatoire
+     * Obtenir client existant ou créer client avec compte User
+     * SOLUTION PROFESSIONNELLE: Unicité email + Compte auto-créé avec mot de passe temporaire
      */
     private function getOrCreateClient(array $customerData)
     {
@@ -93,32 +93,67 @@ class CheckoutService
             ]);
         }
 
-        // ===== GUEST CHECKOUT OPTIMISÉ =====
-        // Rechercher client existant par email OU téléphone
-        $existingClient = Client::where(function($query) use ($customerData) {
-                $query->where('email', $customerData['email'])
-                      ->orWhere('telephone', $customerData['telephone']);
-            })
+        // ===== CHECKOUT INVITÉ AVEC CRÉATION DE COMPTE AUTO =====
+        
+        // 1. Vérifier si un COMPTE User existe avec cet email
+        $existingUser = \App\Models\User::where('email', $customerData['email'])->first();
+        
+        if ($existingUser) {
+            // ❌ Email déjà utilisé → Demander connexion
+            throw new Exception(
+                "Un compte existe déjà avec l'email {$customerData['email']}. "
+                . "Veuillez vous connecter pour passer commande ou utilisez un autre email."
+            );
+        }
+
+        // 2. Vérifier si un CLIENT sans User existe (anciens guests)
+        $existingClient = Client::whereNull('user_id')
+            ->where('email', $customerData['email'])
             ->first();
 
         if ($existingClient) {
-            // Mettre à jour les infos du client (fusion des données)
+            // Client invité existant → Créer son compte User maintenant
+            $temporaryPassword = Str::random(12);
+            
+            $user = \App\Models\User::create([
+                'name' => trim($customerData['prenom'] . ' ' . $customerData['nom']),
+                'email' => $customerData['email'],
+                'password' => bcrypt($temporaryPassword),
+                'email_verified_at' => now(), // Vérifier l'email automatiquement
+            ]);
+
+            // Lier le client existant au nouveau compte
             $existingClient->update([
+                'user_id' => $user->id,
                 'nom' => $customerData['nom'],
                 'prenom' => $customerData['prenom'],
                 'telephone' => $customerData['telephone'],
-                'email' => $customerData['email'],
                 'adresse_livraison' => $customerData['adresse_livraison'],
                 'ville' => $customerData['ville'] ?? $existingClient->ville,
                 'code_postal' => $customerData['code_postal'] ?? $existingClient->code_postal,
+                'type' => 'particulier', // Upgrade de 'invite' à 'particulier'
                 'derniere_activite' => now(),
             ]);
+
+            // Marquer pour envoi du mot de passe temporaire
+            $existingClient->temporary_password = $temporaryPassword;
+            $existingClient->is_new_account = true;
 
             return $existingClient;
         }
 
-        // Créer nouveau client invité (pas de validation email requise)
+        // 3. Nouveau client → Créer compte User + Client en même temps
+        $temporaryPassword = Str::random(12);
+        
+        $user = \App\Models\User::create([
+            'name' => trim($customerData['prenom'] . ' ' . $customerData['nom']),
+            'email' => $customerData['email'],
+            'password' => bcrypt($temporaryPassword),
+            'email_verified_at' => now(), // Email vérifié automatiquement
+        ]);
+
         $newClient = Client::create([
+            'user_id' => $user->id,
             'nom' => $customerData['nom'],
             'prenom' => $customerData['prenom'],
             'telephone' => $customerData['telephone'],
@@ -127,15 +162,15 @@ class CheckoutService
             'ville' => $customerData['ville'] ?? null,
             'code_postal' => $customerData['code_postal'] ?? null,
             'pays' => $customerData['pays'] ?? 'Sénégal',
-            'type' => 'invite',
+            'type' => 'particulier',
             'statut' => 'actif',
             'accepte_newsletter' => $customerData['newsletter'] ?? false,
             'derniere_activite' => now(),
         ]);
 
-        // Envoyer email de bienvenue avec lien création compte (optionnel)
-        // L'email sera envoyé après validation du paiement
-        $newClient->should_send_welcome = true;
+        // Stocker le mot de passe temporaire pour l'email
+        $newClient->temporary_password = $temporaryPassword;
+        $newClient->is_new_account = true;
 
         return $newClient;
     }
@@ -577,25 +612,18 @@ class CheckoutService
             //     'nouvelle_commande'
             // )->onQueue('high');
 
-            // 2. Email de confirmation au client
-            \App\Jobs\SendOrderConfirmationEmailJob::dispatch($commande)
+            // 2. Email de confirmation au client avec credentials si nouveau compte
+            $temporaryPassword = $client->temporary_password ?? null;
+            $isNewAccount = $client->is_new_account ?? false;
+            
+            \App\Jobs\SendOrderConfirmationEmailJob::dispatch($commande, $temporaryPassword, $isNewAccount)
                 ->onQueue('emails');
-
-            // 3. Si client invité, envoyer email création compte (optionnel)
-            if ($client->type === 'invite' && property_exists($client, 'should_send_welcome')) {
-                \App\Jobs\SendWelcomeGuestEmailJob::dispatch($client, $commande)
-                    ->delay(now()->addMinutes(5))
-                    ->onQueue('emails');
-            }
-
-            // 4. Générer facture PDF en arrière-plan
-            \App\Jobs\GenerateInvoicePdfJob::dispatch($commande)
-                ->onQueue('default');
 
             \Log::info('Paiement confirmé avec succès', [
                 'paiement_id' => $paiement->id,
                 'commande_id' => $commande->id,
-                'montant' => $commande->montant_total
+                'montant' => $commande->montant_total,
+                'new_account_created' => $isNewAccount
             ]);
 
             return [

@@ -64,7 +64,7 @@ const getCsrfToken = () => {
 
 // =================== API SERVICE ===================
 class ApiService {
-  constructor(baseURL = '/api/client') {
+  constructor(baseURL = '/api') {
     this.baseURL = baseURL;
     this.pendingRequests = new Map(); // Éviter requêtes en double
     this.csrfInitialized = false;
@@ -545,3 +545,6 @@ class ApiService {
 const api = new ApiService();
 
 export default api;
+// Rebuild: 20251201_142727
+
+// Force rebuild 15:11:03

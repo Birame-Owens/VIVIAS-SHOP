@@ -67,7 +67,7 @@ export default function PaymentSuccess() {
             setLoading(true);
             console.log('🔍 Confirmation paiement:', { orderNumber, sessionId });
             
-            const response = await api.get(`/checkout/success?order=${orderNumber}&session_id=${sessionId}`);
+            const response = await api.get(`/client/checkout/success?order=${orderNumber}&session_id=${sessionId}`);
             console.log('✅ Réponse API success COMPLÈTE:', response);
             
             // response est déjà l'objet {success: true, data: {...}}
@@ -102,9 +102,9 @@ export default function PaymentSuccess() {
     const loadOrderDetails = async () => {
         try {
             console.log('🔍 Chargement commande:', orderNumber);
-            console.log('🔍 URL complète:', `/commandes/${orderNumber}`);
+            console.log('🔍 URL complète:', `/client/commandes/${orderNumber}`);
             
-            const response = await api.get(`/commandes/${orderNumber}`);
+            const response = await api.get(`/client/commandes/${orderNumber}`);
             console.log('📦 Réponse COMPLÈTE API:', response);
             console.log('📦 response.data:', response.data);
             console.log('📦 response.success:', response.success);
