@@ -289,7 +289,7 @@ export default function PaymentSuccess() {
                         
                         {commande?.numero_commande && (
                             <button
-                                onClick={() => navigate(`/account/orders/${commande.numero_commande}`)}
+                                onClick={() => navigate(`/orders/${commande.numero_commande}`)}
                                 className="flex-1 py-4 border border-black text-black text-xs font-bold uppercase tracking-[0.15em] hover:bg-black hover:text-white transition-all flex items-center justify-center gap-2"
                             >
                                 <Package className="w-4 h-4" /> Suivre commande
