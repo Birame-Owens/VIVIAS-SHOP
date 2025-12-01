@@ -65,28 +65,34 @@ export default function PaymentSuccess() {
     const confirmPaymentAndLoadOrder = async () => {
         try {
             setLoading(true);
-            const response = await api.get(`/checkout/success?order=${orderNumber}&session_id=${sessionId}`);
-            console.log('🔍 Réponse confirmation:', response.data);
+            console.log('🔍 Confirmation paiement:', { orderNumber, sessionId });
             
-            if (response.data.success && response.data.data) {
-                setCommande(response.data.data?.commande || response.data.data || response.data.commande);
-                clearCart();
-                setCartCount(0);
-                setError(null);
-            } else {
-                // Si la confirmation échoue, charger quand même les détails
-                const orderLoaded = await loadOrderDetails();
-                if (!orderLoaded) {
-                    setError('Erreur lors du chargement de la commande');
+            const response = await api.get(`/checkout/success?order=${orderNumber}&session_id=${sessionId}`);
+            console.log('✅ Réponse API success:', response.data);
+            
+            if (response.data && response.data.success) {
+                // Extraire la commande de la réponse
+                const commandeData = response.data.data?.commande || response.data.data || response.data.commande;
+                
+                if (commandeData) {
+                    console.log('✅ Commande confirmée:', commandeData.numero_commande);
+                    setCommande(commandeData);
+                    clearCart();
+                    setCartCount(0);
+                    setError(null);
+                } else {
+                    console.warn('⚠️ Pas de données commande, tentative de rechargement');
+                    await loadOrderDetails();
                 }
+            } else {
+                console.warn('⚠️ Réponse invalide, rechargement commande');
+                await loadOrderDetails();
             }
         } catch (err) {
             console.error('❌ Erreur confirmation:', err);
-            // Même en cas d'erreur API, charger les détails de la commande
-            const orderLoaded = await loadOrderDetails();
-            if (!orderLoaded) {
-                setError('Impossible de confirmer le paiement. Veuillez contacter le support.');
-            }
+            console.log('🔄 Tentative de rechargement de la commande...');
+            // En cas d'erreur, essayer de charger quand même la commande
+            await loadOrderDetails();
         } finally {
             setLoading(false);
         }
@@ -97,16 +103,22 @@ export default function PaymentSuccess() {
             console.log('🔍 Chargement commande:', orderNumber);
             const response = await api.get(`/commandes/${orderNumber}`);
             console.log('📦 Réponse API commande:', response.data);
+            
             if (response.data && response.data.success && response.data.data) {
                 setCommande(response.data.data);
+                clearCart(); // Vider le panier même en rechargement
+                setCartCount(0);
+                setError(null);
                 console.log('✅ Commande chargée:', response.data.data.numero_commande);
-                return true; // Commande chargée avec succès
+                return true;
             } else {
                 console.error('❌ Réponse invalide:', response.data);
+                setError('Commande introuvable');
                 return false;
             }
         } catch (err) {
-            console.error('Erreur chargement commande:', err);
+            console.error('❌ Erreur chargement commande:', err);
+            setError('Impossible de charger les détails de la commande');
             return false;
         }
     };
@@ -168,7 +180,7 @@ export default function PaymentSuccess() {
                             <Check className="w-8 h-8 text-black" strokeWidth={1.5} />
                         </div>
                         <h1 className="text-3xl md:text-4xl font-light uppercase tracking-[0.2em] mb-4">
-                            Merci {commande?.client?.prenom}
+                            Merci {commande?.client?.prenom || commande?.prenom || commande?.nom_destinataire?.split(' ')[1] || 'Cher client'}
                         </h1>
                         <p className="text-sm text-neutral-500 uppercase tracking-widest font-medium">
                             Votre commande a été confirmée
@@ -202,15 +214,17 @@ export default function PaymentSuccess() {
                             {commande?.articles?.map((item, index) => (
                                 <div key={index} className="flex justify-between items-start group">
                                     <div>
-                                        <p className="text-sm font-bold uppercase tracking-wide">{item.nom_produit || item.product?.nom}</p>
+                                        <p className="text-sm font-bold uppercase tracking-wide">
+                                            {item.nom_produit || item.produit?.nom || 'Produit'}
+                                        </p>
                                         <p className="text-[10px] text-neutral-500 uppercase mt-1">
                                             Qté: {item.quantite} 
-                                            {item.taille && ` | ${item.taille}`} 
-                                            {item.couleur && ` | ${item.couleur}`}
+                                            {item.taille_choisie && ` | ${item.taille_choisie}`} 
+                                            {item.couleur_choisie && ` | ${item.couleur_choisie}`}
                                         </p>
                                     </div>
                                     <p className="text-sm font-medium">
-                                        {(item.prix_total_article || item.prix_unitaire * item.quantite).toLocaleString()} FCFA
+                                        {(item.prix_total_article || (item.prix_unitaire * item.quantite)).toLocaleString()} FCFA
                                     </p>
                                 </div>
                             ))}
@@ -239,9 +253,11 @@ export default function PaymentSuccess() {
                             <div>
                                 <h3 className="font-bold uppercase tracking-widest mb-3 text-neutral-900">Livraison</h3>
                                 <p className="text-neutral-600 leading-relaxed">
-                                    {commande?.adresse_livraison}<br />
-                                    {commande?.ville}<br />
-                                    {commande?.telephone_livraison}
+                                    {commande?.adresse_livraison || 'Adresse non spécifiée'}<br />
+                                    {(commande?.ville || commande?.client?.ville) && (
+                                        <>{commande?.ville || commande?.client?.ville}<br /></>
+                                    )}
+                                    {commande?.telephone_livraison || commande?.client?.telephone || 'Téléphone non spécifié'}
                                 </p>
                             </div>
                             <div>
@@ -274,7 +290,7 @@ export default function PaymentSuccess() {
                     </div>
 
                     <p className="text-center text-[10px] text-neutral-400 uppercase tracking-widest mt-8">
-                        Un email de confirmation a été envoyé à {commande?.client?.email}
+                        Un email de confirmation a été envoyé à {commande?.client?.email || commande?.email || 'votre adresse email'}
                     </p>
 
                 </motion.div>

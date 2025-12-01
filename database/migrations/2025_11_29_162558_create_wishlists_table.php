@@ -17,8 +17,8 @@ return new class extends Migration
             $table->unsignedBigInteger('produit_id');
             $table->timestamp('created_at')->useCurrent();
             
-            // Contraintes
-            $table->foreign('client_id')->references('id')->on('clients')->onDelete('cascade');
+            // Contraintes - CORRECTION: pointer vers 'users' au lieu de 'clients'
+            $table->foreign('client_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('produit_id')->references('id')->on('produits')->onDelete('cascade');
             
             // Un client ne peut ajouter le même produit qu'une fois

@@ -38,14 +38,23 @@ class WishlistController extends Controller
     {
         try {
             $validated = $request->validated();
+            \Log::info('💚 Wishlist add - Validated data:', $validated);
+            \Log::info('💚 Wishlist add - User:', ['user' => auth('sanctum')->user()?->id]);
+            
             $result = $this->wishlistService->addToWishlist($validated['product_id']);
 
             return response()->json($result);
 
         } catch (\Exception $e) {
+            \Log::error('❌ Wishlist add error:', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l\'ajout aux favoris'
+                'message' => 'Erreur lors de l\'ajout aux favoris: ' . $e->getMessage()
             ], 500);
         }
     }
