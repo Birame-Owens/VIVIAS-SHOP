@@ -122,6 +122,15 @@ class CheckoutService
                 'email_verified_at' => now(), // Vérifier l'email automatiquement
             ]);
 
+            // Connecter automatiquement l'utilisateur
+            \Illuminate\Support\Facades\Auth::login($user);
+            
+            \Log::info('🔐 Ancien client invité connecté automatiquement', [
+                'user_id' => $user->id,
+                'client_id' => $existingClient->id,
+                'email' => $user->email
+            ]);
+
             // Lier le client existant au nouveau compte
             $existingClient->update([
                 'user_id' => $user->id,
@@ -150,6 +159,14 @@ class CheckoutService
             'email' => $customerData['email'],
             'password' => bcrypt($temporaryPassword),
             'email_verified_at' => now(), // Email vérifié automatiquement
+        ]);
+
+        // Connecter automatiquement l'utilisateur
+        \Illuminate\Support\Facades\Auth::login($user);
+        
+        \Log::info('🔐 Utilisateur connecté automatiquement après création compte', [
+            'user_id' => $user->id,
+            'email' => $user->email
         ]);
 
         $newClient = Client::create([
