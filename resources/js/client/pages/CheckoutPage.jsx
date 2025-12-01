@@ -400,8 +400,8 @@ const CheckoutPage = () => {
                       <div className="flex justify-between items-center mb-1">
                         <span className="font-bold uppercase tracking-wider text-sm">Carte Bancaire</span>
                         <div className="flex gap-2">
-                           <div className="w-8 h-5 bg-gray-200 rounded-sm"></div>
-                           <div className="w-8 h-5 bg-gray-200 rounded-sm"></div>
+                           <img src="/assets/images/visa.png" alt="Visa" className="h-5 object-contain" />
+                           <img src="/assets/images/mastercard.jpg" alt="Mastercard" className="h-5 object-contain rounded-sm" />
                         </div>
                       </div>
                       <p className="text-xs text-neutral-500">Paiement sécurisé par Stripe (Visa, Mastercard).</p>
@@ -423,11 +423,11 @@ const CheckoutPage = () => {
                     <div className="flex-1">
                       <div className="flex justify-between items-center mb-1">
                         <span className="font-bold uppercase tracking-wider text-sm flex items-center gap-2">
-                           Wave <span className="bg-[#1DC4FF] w-2 h-2 rounded-full"></span>
+                           Wave
                         </span>
-                        <span className="text-[10px] bg-neutral-100 px-2 py-1 uppercase tracking-widest font-bold text-neutral-500">Bientôt</span>
+                        <img src="/assets/images/wave logo.png" alt="Wave" className="h-6 object-contain" />
                       </div>
-                      <p className="text-xs text-neutral-500">Paiement mobile via application Wave.</p>
+                      <p className="text-xs text-neutral-500">Paiement mobile via application Wave (NexPay).</p>
                     </div>
                   </label>
 
@@ -446,11 +446,11 @@ const CheckoutPage = () => {
                     <div className="flex-1">
                       <div className="flex justify-between items-center mb-1">
                         <span className="font-bold uppercase tracking-wider text-sm flex items-center gap-2">
-                           Orange Money <span className="bg-[#FF7900] w-2 h-2 rounded-full"></span>
+                           Orange Money
                         </span>
-                        <span className="text-[10px] bg-neutral-100 px-2 py-1 uppercase tracking-widest font-bold text-neutral-500">Bientôt</span>
+                        <img src="/assets/images/orange-money.jpg" alt="Orange Money" className="h-6 object-contain rounded-sm" />
                       </div>
-                      <p className="text-xs text-neutral-500">Paiement mobile sécurisé.</p>
+                      <p className="text-xs text-neutral-500">Paiement mobile sécurisé (NexPay).</p>
                     </div>
                   </label>
                 </div>
