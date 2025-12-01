@@ -71,10 +71,17 @@ class CheckoutController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
+            // Distinguer erreurs métier (400) des erreurs techniques (500)
+            $isBusinessError = str_contains($e->getMessage(), 'Un compte existe déjà') 
+                            || str_contains($e->getMessage(), 'email') 
+                            || str_contains($e->getMessage(), 'stock')
+                            || str_contains($e->getMessage(), 'connecter');
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+                'message' => $e->getMessage(),
+                'type' => $isBusinessError ? 'validation' : 'server_error'
+            ], $isBusinessError ? 400 : 500);
         }
     }
 

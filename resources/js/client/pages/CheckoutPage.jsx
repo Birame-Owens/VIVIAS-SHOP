@@ -173,7 +173,24 @@ const CheckoutPage = () => {
 
     } catch (error) {
       console.error('Erreur checkout:', error);
-      toast.error(error.message || 'Une erreur est survenue');
+      
+      // Vérifier si c'est une erreur "email déjà utilisé"
+      if (error.message && error.message.includes('compte existe déjà')) {
+        toast.error(
+          <div>
+            <p className="font-bold">Email déjà utilisé</p>
+            <p className="text-sm">Cet email est déjà associé à un compte. Veuillez vous connecter.</p>
+          </div>,
+          { duration: 6000 }
+        );
+        
+        // Proposer la connexion après 2 secondes
+        setTimeout(() => {
+          setAuthModalOpen(true);
+        }, 2000);
+      } else {
+        toast.error(error.message || 'Une erreur est survenue lors de la commande');
+      }
     } finally {
       setIsProcessing(false);
     }
