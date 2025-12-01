@@ -68,13 +68,14 @@ export default function PaymentSuccess() {
             console.log('🔍 Confirmation paiement:', { orderNumber, sessionId });
             
             const response = await api.get(`/checkout/success?order=${orderNumber}&session_id=${sessionId}`);
-            console.log('✅ Réponse API success:', response.data);
+            console.log('✅ Réponse API success COMPLÈTE:', response);
             
-            if (response.data && response.data.success) {
+            // response est déjà l'objet {success: true, data: {...}}
+            if (response && response.success) {
                 // Extraire la commande de la réponse
-                const commandeData = response.data.data?.commande || response.data.data || response.data.commande;
+                const commandeData = response.data?.commande || response.data;
                 
-                if (commandeData) {
+                if (commandeData && commandeData.numero_commande) {
                     console.log('✅ Commande confirmée:', commandeData.numero_commande);
                     setCommande(commandeData);
                     clearCart();
@@ -101,23 +102,30 @@ export default function PaymentSuccess() {
     const loadOrderDetails = async () => {
         try {
             console.log('🔍 Chargement commande:', orderNumber);
-            const response = await api.get(`/commandes/${orderNumber}`);
-            console.log('📦 Réponse API commande:', response.data);
+            console.log('🔍 URL complète:', `/commandes/${orderNumber}`);
             
-            if (response.data && response.data.success && response.data.data) {
-                setCommande(response.data.data);
-                clearCart(); // Vider le panier même en rechargement
+            const response = await api.get(`/commandes/${orderNumber}`);
+            console.log('📦 Réponse COMPLÈTE API:', response);
+            console.log('📦 response.data:', response.data);
+            console.log('📦 response.success:', response.success);
+            
+            // CORRECTION: response est déjà l'objet de données, pas besoin de .data
+            if (response && response.success && response.data) {
+                setCommande(response.data);
+                clearCart();
                 setCartCount(0);
                 setError(null);
-                console.log('✅ Commande chargée:', response.data.data.numero_commande);
+                console.log('✅ Commande chargée:', response.data.numero_commande);
                 return true;
             } else {
-                console.error('❌ Réponse invalide:', response.data);
+                console.error('❌ Réponse invalide. response:', response);
                 setError('Commande introuvable');
                 return false;
             }
         } catch (err) {
             console.error('❌ Erreur chargement commande:', err);
+            console.error('❌ Type erreur:', err.constructor.name);
+            console.error('❌ Message:', err.message);
             setError('Impossible de charger les détails de la commande');
             return false;
         }
