@@ -138,7 +138,10 @@ const CheckoutPage = () => {
       const orderResult = await orderResponse.json();
 
       if (!orderResult.success) {
-        throw new Error(orderResult.message || 'Erreur lors de la création de la commande');
+        const errorMessage = orderResult.message || 'Erreur lors de la création de la commande';
+        const error = new Error(errorMessage);
+        error.type = orderResult.type; // 'validation' ou 'server_error'
+        throw error;
       }
 
       const commande = orderResult.data.commande;
