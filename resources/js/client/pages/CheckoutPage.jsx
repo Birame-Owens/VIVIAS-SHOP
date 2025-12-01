@@ -18,7 +18,7 @@ const SimpleFooter = () => (
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { user: authUser, isAuthenticated } = useAuth();
+  const { user: authUser, isAuthenticated, checkAuth } = useAuth();
   const { items, total, subtotal, shipping, discount, coupon, syncCart } = useCartStore();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('stripe');
@@ -146,6 +146,9 @@ const CheckoutPage = () => {
 
       const commande = orderResult.data.commande;
 
+      // ✅ Vérifier si l'utilisateur a été connecté automatiquement
+      await checkAuth();
+
       // Initier le paiement
       const paymentResponse = await fetch(`/api/client/checkout/payment/${commande.numero_commande}`, {
         method: 'POST',
@@ -182,15 +185,15 @@ const CheckoutPage = () => {
         toast.error(
           <div>
             <p className="font-bold">Email déjà utilisé</p>
-            <p className="text-sm">Cet email est déjà associé à un compte. Veuillez vous connecter.</p>
+            <p className="text-sm">Cet email est déjà associé à un compte. Veuillez vous connecter pour continuer.</p>
           </div>,
           { duration: 6000 }
         );
         
-        // Proposer la connexion après 2 secondes
-        setTimeout(() => {
-          setAuthModalOpen(true);
-        }, 2000);
+        // Ne PAS ouvrir automatiquement la modale - laissez l'utilisateur décider
+        // setTimeout(() => {
+        //   setAuthModalOpen(true);
+        // }, 2000);
       } else {
         toast.error(error.message || 'Une erreur est survenue lors de la commande');
       }
