@@ -295,17 +295,17 @@ class ApiService {
   }
   // =================== CATÉGORIES ===================
   getCategories() {
-    return this.cachedRequest('categories', '/categories');
+    return this.cachedRequest('categories', '/client/categories');
   }
 
   getCategoryBySlug(slug) {
-    return this.cachedRequest('categories', `/categories/${slug}`, slug);
+    return this.cachedRequest('categories', `/client/categories/${slug}`, slug);
   }
 
   getCategoryProducts(slug, filters = {}) {
     const params = new URLSearchParams(filters).toString();
     // Ne PAS utiliser cachedRequest - toujours faire une requête fraîche
-    return this.request(`/categories/${slug}/products?${params}`);
+    return this.request(`/client/categories/${slug}/products?${params}`);
   }
 
   // =================== RECHERCHE ===================
