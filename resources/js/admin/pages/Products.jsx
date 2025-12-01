@@ -533,17 +533,17 @@ const duplicateProduct = async (product) => {
     };
 
     return (
-        <div className="p-6">
+        <div className="p-3 md:p-6">
             {/* Header */}
-            <div className="mb-6">
-                <div className="flex items-center justify-between">
+            <div className="mb-4 md:mb-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Produits</h1>
-                        <p className="text-gray-600">Gérez votre catalogue de produits</p>
+                        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Produits</h1>
+                        <p className="text-sm text-gray-600 hidden md:block">Gérez votre catalogue de produits</p>
                     </div>
                     <button
                         onClick={() => openModal()}
-                        className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
+                        className="bg-purple-600 text-white px-3 md:px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center justify-center space-x-2 text-sm md:text-base"
                     >
                         <Plus className="w-4 h-4" />
                         <span>Nouveau produit</span>
@@ -552,27 +552,42 @@ const duplicateProduct = async (product) => {
             </div>
 
             {/* Filtres et recherche */}
-            <div className="bg-white rounded-lg shadow-sm border mb-6 p-4">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-                    <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
-                        <div className="relative">
+            <div className="bg-white rounded-lg shadow-sm border mb-4 md:mb-6 p-3 md:p-4">
+                <div className="flex flex-col space-y-3 md:space-y-4">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0">
+                        {/* Recherche */}
+                        <div className="relative flex-1 md:max-w-md">
                             <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Rechercher un produit..."
+                                placeholder="Rechercher..."
                                 value={searchTerm}
                                 onChange={handleSearch}
-                                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full md:w-80"
+                                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full text-sm"
                             />
                         </div>
                         
+                        {/* Actions rapides mobile */}
+                        <div className="flex items-center space-x-2">
+                            <button
+                                onClick={loadProducts}
+                                className="p-2 hover:bg-gray-100 rounded-lg"
+                                title="Actualiser"
+                            >
+                                <RefreshCw className="w-4 h-4 text-gray-600" />
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* Filtres - 2ème ligne */}
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
                         <select
                             value={categoryFilter}
                             onChange={(e) => {
                                 setCategoryFilter(e.target.value);
                                 setCurrentPage(1);
                             }}
-                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
                         >
                             <option value="">Toutes les catégories</option>
                             {categories.map(category => (
