@@ -58,13 +58,14 @@ return [
         'default_cost' => env('SHIPPING_DEFAULT_COST', 2500), // Coût par défaut
     ],
 
-    // =================== NEXPAY (Wave & Orange Money) ===================
-    'nexpay' => [
-        'api_url' => env('NEXPAY_API_URL', 'https://pay.yourdomain.com'),
-        'write_key' => env('NEXPAY_WRITE_KEY'),
-        'read_key' => env('NEXPAY_READ_KEY'),
-        'webhook_secret' => env('NEXPAY_WEBHOOK_SECRET'),
-        'project_id' => env('NEXPAY_PROJECT_ID'),
+    // =================== PAYTECH (Wave & Orange Money) ===================
+    'paytech' => [
+        'api_key' => env('PAYTECH_API_KEY'),
+        'api_secret' => env('PAYTECH_API_SECRET'),
+        'env' => env('PAYTECH_ENV', 'test'), // test ou prod
+        'ipn_url' => env('PAYTECH_IPN_URL'),
+        'success_url' => env('PAYTECH_SUCCESS_URL'),
+        'cancel_url' => env('PAYTECH_CANCEL_URL'),
     ],
 
 ];

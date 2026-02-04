@@ -505,17 +505,17 @@ class PaiementController extends Controller
             'date_echeance' => $paiement->date_echeance?->format('d/m/Y'),
             'message_retour' => $paiement->message_retour,
             'is_manual' => in_array($paiement->methode_paiement, ['especes', 'cheque', 'virement']),
-            'commande' => [
+            'commande' => $paiement->commande ? [
                 'id' => $paiement->commande->id,
                 'numero_commande' => $paiement->commande->numero_commande,
                 'montant_total' => $paiement->commande->montant_total
-            ],
-            'client' => [
+            ] : null,
+            'client' => $paiement->client ? [
                 'id' => $paiement->client->id,
                 'nom_complet' => $paiement->client->nom . ' ' . $paiement->client->prenom,
                 'telephone' => $paiement->client->telephone,
                 'email' => $paiement->client->email
-            ]
+            ] : null
         ];
 
         if ($detailed) {

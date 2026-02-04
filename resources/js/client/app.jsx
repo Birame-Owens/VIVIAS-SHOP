@@ -1,4 +1,4 @@
-// resources/js/client/app.jsx - VERSION OPTIMISÉE AVEC AUTH
+// resources/js/client/app.jsx - VERSION ULTRA-OPTIMISÉE POUR BUNDLE RÉDUIT
 import React, { useEffect, useState, createContext, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
@@ -6,40 +6,31 @@ import { AuthProvider } from "./contexts/AuthContext";
 import api from "./utils/api";
 import "./client.css";
 
-// Logs de débogage
-console.log("🔧 App.jsx chargé");
+// ⚡ IMPORTANT: Retirer tous les logs en production
+if (process.env.NODE_ENV === 'production') {
+    console.log = () => {};
+    console.debug = () => {};
+    console.warn = () => {};
+}
 
-// Gestion des erreurs non capturées
-window.addEventListener('error', (event) => {
-  console.error('❌ Erreur globale:', event.error);
-});
+// ⚡ LAZY LOADING AGRESSIF: Toutes les pages en chunks séparés
+const HomePage = lazy(() => import(/* webpackChunkName: "page-home" */ "./pages/HomePage"));
+const ShopPage = lazy(() => import(/* webpackChunkName: "page-shop" */ "./pages/ShopPage"));
+const CategoryPage = lazy(() => import(/* webpackChunkName: "page-category" */ "./pages/CategoryPage"));
+const ProductDetailPage = lazy(() => import(/* webpackChunkName: "page-product" */ "./pages/ProductDetailPage"));
+const CartPage = lazy(() => import(/* webpackChunkName: "page-cart" */ "./pages/CartPage"));
+const WishlistPage = lazy(() => import(/* webpackChunkName: "page-wishlist" */ "./pages/WishlistPage"));
+const ProfilePage = lazy(() => import(/* webpackChunkName: "page-profile" */ "./pages/ProfilePage"));
+const AccountPage = lazy(() => import(/* webpackChunkName: "page-account" */ "./pages/AccountPage"));
+const OrdersPage = lazy(() => import(/* webpackChunkName: "page-orders" */ "./pages/OrdersPage"));
+const OrderDetailPage = lazy(() => import(/* webpackChunkName: "page-order-detail" */ "./pages/OrderDetailPage"));
+const CheckoutPage = lazy(() => import(/* webpackChunkName: "page-checkout" */ "./pages/CheckoutPage"));
+const PaymentSuccess = lazy(() => import(/* webpackChunkName: "page-payment-success" */ "./pages/PaymentSuccess"));
+const ForgotPasswordPage = lazy(() => import(/* webpackChunkName: "page-forgot" */ "./pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import(/* webpackChunkName: "page-reset" */ "./pages/ResetPasswordPage"));
 
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('❌ Promise rejetée non gérée:', event.reason);
-});
-
-// LAZY LOADING avec prefetching agressif
-const HomePage = lazy(() => import("./pages/HomePage"));
-const ShopPage = lazy(() => import("./pages/ShopPage"));
-const CategoryPage = lazy(() => import("./pages/CategoryPage"));
-const ProductDetailPage = lazy(() => import("./pages/ProductDetailPage"));
-const CartPage = lazy(() => import("./pages/CartPage"));
-const WishlistPage = lazy(() => import("./pages/WishlistPage"));
-const ProfilePage = lazy(() => import("./pages/ProfilePage"));
-const AccountPage = lazy(() => import("./pages/AccountPage"));
-const OrdersPage = lazy(() => import("./pages/OrdersPage"));
-const OrderDetailPage = lazy(() => import("./pages/OrderDetailPage"));
-const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
-const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
-
-// Prefetch immédiat des composants critiques au chargement
-setTimeout(() => {
-    import("./pages/CategoryPage");
-    import("./pages/ProductDetailPage");
-}, 100);
-
-// Loading minimal - Invisible pour navigation fluide
-const PageLoader = () => null;
+// ⚡ Loading minimal - Ne pas renderer de contenu (invisible)
+const PageLoader = () => <div />;
 
 // Context global
 export const AppContext = createContext({
@@ -51,10 +42,19 @@ const AppClient = () => {
     const [config, setConfig] = useState(null);
 
     useEffect(() => {
-        // Initialiser CSRF dès le chargement
+        // Initialiser CSRF
         api.initCsrf();
         loadConfig();
+        
+        // Précharger SEULEMENT les données vraiment critiques
         prefetchCriticalData();
+        
+        // Lazy prefetch pages secondaires après 3s (délai non-bloquant)
+        const prefetchTimer = setTimeout(() => {
+            prefetchSecondaryPages();
+        }, 3000);
+        
+        return () => clearTimeout(prefetchTimer);
     }, []);
 
     const loadConfig = async () => {
@@ -66,53 +66,60 @@ const AppClient = () => {
             }
 
             const response = await api.getConfig();
-            if (response.success) {
+            if (response?.success) {
                 setConfig(response.data);
                 sessionStorage.setItem('app_config', JSON.stringify(response.data));
-            } else {
-                throw new Error('Config non disponible');
             }
         } catch (error) {
-            console.error('Erreur chargement config:', error);
+            // Config par défaut minimale
             const defaultConfig = {
-                company: {
-                    name: 'VIVIAS SHOP',
-                    whatsapp: '+221784661412',
-                    email: 'contact@viviasshop.sn',
-                    phone: '+221784661412',
-                    address: 'Dakar, Sénégal'
-                },
+                company: { name: 'VIVIAS SHOP' },
                 currency: 'FCFA',
-                shipping: {
-                    free_threshold: 50000,
-                    default_fee: 2500
-                },
-                social: {
-                    facebook: 'https://facebook.com/viviasshop',
-                    instagram: 'https://instagram.com/viviasshop',
-                    twitter: 'https://twitter.com/viviasshop'
-                }
+                shipping: { free_threshold: 50000, default_fee: 2500 }
             };
             setConfig(defaultConfig);
             sessionStorage.setItem('app_config', JSON.stringify(defaultConfig));
         }
     };
 
-    // Précharger les données critiques
+    // ⚡ Précharger SEULEMENT les données critiques (catégories)
     const prefetchCriticalData = async () => {
         try {
-            api.getCategories();
-            api.getCartCount();
-            api.getWishlistCount();
+            api.getCategories().catch(() => {});
         } catch (error) {
-            console.error('Erreur préchargement:', error);
+            // Silent fail
+        }
+    };
+
+    // ⚡ Précharger pages probables APRÈS le rendu initial
+    const prefetchSecondaryPages = () => {
+        try {
+            // Utiliser requestIdleCallback pour ne pas bloquer
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(() => {
+                    import('./pages/ShopPage').catch(() => {});
+                    import('./pages/ProductDetailPage').catch(() => {});
+                }, { timeout: 5000 });
+            } else {
+                // Fallback: attendre 2s avant prefetch
+                setTimeout(() => {
+                    import('./pages/ShopPage').catch(() => {});
+                    import('./pages/ProductDetailPage').catch(() => {});
+                }, 2000);
+            }
+        } catch (error) {
+            // Silent
         }
     };
 
     // Fonction pour précharger un produit (utilisée au survol)
     const prefetchProduct = (slug) => {
         if (slug) {
-            api.getProductBySlug(slug).catch(() => {});
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(() => {
+                    api.getProductBySlug?.(slug).catch(() => {});
+                });
+            }
         }
     };
 
@@ -130,6 +137,8 @@ const AppClient = () => {
                             <Route path="/wishlist" element={<WishlistPage />} />
                             <Route path="/checkout" element={<CheckoutPage />} />
                             <Route path="/checkout/success" element={<PaymentSuccess />} />
+                            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                            <Route path="/reset-password" element={<ResetPasswordPage />} />
                             <Route path="/profile" element={<ProfilePage />} />
                             <Route path="/account" element={<AccountPage />} />
                             <Route path="/orders" element={<OrdersPage />} />
@@ -143,32 +152,16 @@ const AppClient = () => {
     );
 };
 
-// Montage de l'application avec optimisations
+// Montage simple de l'app
 const container = document.getElementById("client-app");
-
-if (container) {
-    console.log("✅ App container trouvé, montage React...");
-    // Éviter les doubles montages en développement
-    if (!container._reactRootContainer) {
-        try {
-            const root = createRoot(container);
-            container._reactRootContainer = root;
-            root.render(<AppClient />);
-            window.reactMounted = true; // Signal pour timeout detector
-            console.log("✅ AppClient rendu avec succès");
-        } catch (error) {
-            console.error("❌ Erreur montage React:", error);
-            container.innerHTML = `
-                <div style="padding: 20px; text-align: center;">
-                    <h1>⚠️ Erreur de chargement</h1>
-                    <p>${error.message}</p>
-                    <p><button onclick="location.reload()">Rafraîchir</button></p>
-                </div>
-            `;
-        }
+if (container && !container._reactRootContainer) {
+    try {
+        const root = createRoot(container);
+        container._reactRootContainer = root;
+        root.render(<AppClient />);
+    } catch (error) {
+        container.innerHTML = `<div style="padding:20px;text-align:center;"><h1>⚠️ Erreur</h1><button onclick="location.reload()">Rafraîchir</button></div>`;
     }
-} else {
-    console.error("❌ Container #client-app NOT FOUND");
 }
 
 export default AppClient;

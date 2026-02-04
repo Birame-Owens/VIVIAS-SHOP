@@ -61,6 +61,26 @@ class CheckoutController extends Controller
                 'commande_id' => $result['data']['commande']->id ?? null
             ]);
 
+            // ✅ Ajouter le token d'authentification si compte créé automatiquement
+            $client = $result['data']['commande']->client;
+            if (isset($client->auth_token)) {
+                $result['auth'] = [
+                    'token' => $client->auth_token,
+                    'user' => [
+                        'id' => $client->user_id,
+                        'name' => $client->prenom . ' ' . $client->nom,
+                        'email' => $client->email,
+                        'client' => $client
+                    ],
+                    'message' => 'Compte créé et connecté automatiquement'
+                ];
+                
+                \Log::info('🎉 Token authentification ajouté à la réponse', [
+                    'user_id' => $client->user_id,
+                    'email' => $client->email
+                ]);
+            }
+
             return response()->json($result, 201);
 
         } catch (Exception $e) {
@@ -160,8 +180,27 @@ class CheckoutController extends Controller
             }
 
             $commande = Commande::where('numero_commande', $orderNumber)
-                ->with(['articles.produit.images_produits', 'client', 'paiements'])
+                ->with([
+                    'articles_commandes.produit.images_produits',
+                    'client',
+                    'paiements'
+                ])
                 ->firstOrFail();
+
+            // Formatter les articles pour le frontend
+            $commande->articles = $commande->articles_commandes->map(function ($article) {
+                return [
+                    'id' => $article->id,
+                    'nom_produit' => $article->nom_produit,
+                    'description_produit' => $article->description_produit,
+                    'prix_unitaire' => $article->prix_unitaire,
+                    'quantite' => $article->quantite,
+                    'prix_total_article' => $article->prix_total_article,
+                    'taille_choisie' => $article->taille_choisie,
+                    'couleur_choisie' => $article->couleur_choisie,
+                    'produit' => $article->produit
+                ];
+            });
 
             return response()->json([
                 'success' => true,

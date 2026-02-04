@@ -69,6 +69,9 @@ const Products = () => {
     const [submitting, setSubmitting] = useState(false);
     const [imagePreview, setImagePreview] = useState(null);
     const [multipleImages, setMultipleImages] = useState([]);
+    const [existingImages, setExistingImages] = useState([]); // Images déjà enregistrées
+    const [imagesToDelete, setImagesToDelete] = useState([]); // IDs des images à supprimer
+    const [imageInputKey, setImageInputKey] = useState(Date.now());
 
     const API_BASE = '/api/admin';
     const getHeaders = () => ({
@@ -169,39 +172,82 @@ const loadCategories = async () => {
 
     // Ouvrir le modal
    // Modifiez la fonction openModal
-const openModal = (product = null) => {
+const openModal = async (product = null) => {
     if (product) {
-        setEditingProduct(product);
-        setFormData({
-            nom: product.nom || '',
-            description: product.description || '',
-            description_courte: product.description_courte || '',
-            prix: product.prix?.toString() || '',
-            prix_promo: product.prix_promo?.toString() || '',
-            debut_promo: product.debut_promo || '',
-            fin_promo: product.fin_promo || '',
-            categorie_id: product.categorie?.id?.toString() || '',
-            stock_disponible: product.stock_disponible?.toString() || '0',
-            seuil_alerte: product.seuil_alerte?.toString() || '5',
-            gestion_stock: product.gestion_stock ?? true,
-            fait_sur_mesure: product.fait_sur_mesure ?? false,
-            delai_production_jours: product.delai_production_jours?.toString() || '',
-            cout_production: product.cout_production?.toString() || '',
-            tailles_disponibles: Array.isArray(product.tailles_disponibles) ? product.tailles_disponibles : [],
-            couleurs_disponibles: Array.isArray(product.couleurs_disponibles) ? product.couleurs_disponibles : [],
-            materiaux_necessaires: Array.isArray(product.materiaux_necessaires) ? product.materiaux_necessaires : [],
-            est_visible: product.est_visible ?? true,
-            est_populaire: product.est_populaire ?? false,
-            est_nouveaute: product.est_nouveaute ?? false,
-            ordre_affichage: product.ordre_affichage || 0,
-            meta_titre: product.meta_titre || '',
-            meta_description: product.meta_description || '',
-            tags: product.tags || ''
-        });
-        
-        // Précharger l'image existante
-        if (product.image_principale) {
-            setImagePreview(product.image_principale);
+        try {
+            // Charger les détails complets du produit avec les images
+            console.log('🔄 Chargement des détails du produit:', product.id);
+            const response = await fetch(`${API_BASE}/produits/${product.id}`, {
+                headers: getHeaders()
+            });
+            
+            if (!response.ok) throw new Error('Erreur lors du chargement du produit');
+            
+            const result = await response.json();
+            if (!result.success) throw new Error(result.message);
+            
+            const productDetails = result.data.produit;
+            console.log('📦 Produit complet chargé:', productDetails);
+            
+            setEditingProduct(productDetails);
+            setFormData({
+                nom: productDetails.nom || '',
+                description: productDetails.description || '',
+                description_courte: productDetails.description_courte || '',
+                prix: productDetails.prix?.toString() || '',
+                prix_promo: productDetails.prix_promo?.toString() || '',
+                debut_promo: productDetails.debut_promo || '',
+                fin_promo: productDetails.fin_promo || '',
+                categorie_id: productDetails.categorie?.id?.toString() || '',
+                stock_disponible: productDetails.stock_disponible?.toString() || '0',
+                seuil_alerte: productDetails.seuil_alerte?.toString() || '5',
+                gestion_stock: productDetails.gestion_stock ?? true,
+                fait_sur_mesure: productDetails.fait_sur_mesure ?? false,
+                delai_production_jours: productDetails.delai_production_jours?.toString() || '',
+                cout_production: productDetails.cout_production?.toString() || '',
+                tailles_disponibles: Array.isArray(productDetails.tailles_disponibles) ? productDetails.tailles_disponibles : [],
+                couleurs_disponibles: Array.isArray(productDetails.couleurs_disponibles) ? productDetails.couleurs_disponibles : [],
+                materiaux_necessaires: Array.isArray(productDetails.materiaux_necessaires) ? productDetails.materiaux_necessaires : [],
+                est_visible: productDetails.est_visible ?? true,
+                est_populaire: productDetails.est_populaire ?? false,
+                est_nouveaute: productDetails.est_nouveaute ?? false,
+                ordre_affichage: productDetails.ordre_affichage || 0,
+                meta_titre: productDetails.meta_titre || '',
+                meta_description: productDetails.meta_description || '',
+                tags: productDetails.tags || ''
+            });
+            
+            // Précharger l'image existante
+            if (productDetails.image_principale) {
+                setImagePreview(productDetails.image_principale);
+            }
+            
+            // Charger les images supplémentaires existantes
+            console.log('🖼️ Product images:', productDetails.images);
+            console.log('📊 Total images:', productDetails.images?.length);
+            if (productDetails.images && productDetails.images.length > 0) {
+                // Afficher TOUTES les images pour le debug
+                console.log('✅ Toutes les images:', productDetails.images);
+                // Filtrer pour enlever l'image principale (on la montre déjà en haut)
+                const supplementaryImages = productDetails.images.filter(img => !img.est_principale);
+                console.log('📋 Images supplémentaires filtrées:', supplementaryImages);
+                console.log('🔢 Nombre d\'images supplémentaires:', supplementaryImages.length);
+                
+                // Si aucune image après filtrage, afficher toutes les images
+                if (supplementaryImages.length === 0 && productDetails.images.length > 0) {
+                    console.warn('⚠️ Aucune image avec est_principale=false, affichage de toutes les images');
+                    setExistingImages(productDetails.images);
+                } else {
+                    setExistingImages(supplementaryImages);
+                }
+            } else {
+                console.log('⚠️ Aucune image trouvée pour ce produit');
+                setExistingImages([]);
+            }
+        } catch (error) {
+            console.error('❌ Erreur chargement produit:', error);
+            toast.error('Erreur lors du chargement des détails du produit');
+            return;
         }
     } else {
         setEditingProduct(null);
@@ -232,6 +278,9 @@ const openModal = (product = null) => {
             tags: ''
         });
         setImagePreview(null);
+        setImageInputKey(Date.now());
+        setExistingImages([]);
+        setImagesToDelete([]);
     }
     setFormErrors({});
     setMultipleImages([]);
@@ -246,6 +295,9 @@ const openModal = (product = null) => {
         setFormErrors({});
         setImagePreview(null);
         setMultipleImages([]);
+        setExistingImages([]);
+        setImagesToDelete([]);
+        setImageInputKey(Date.now());
     };
 
     // Gérer les changements du formulaire
@@ -256,11 +308,14 @@ const openModal = (product = null) => {
             if (name === 'image_principale') {
                 const file = files[0];
                 if (file) {
+                    console.log('📸 Nouvelle image sélectionnée:', file.name);
                     setFormData(prev => ({ ...prev, image_principale: file }));
                     
                     const reader = new FileReader();
                     reader.onloadend = () => {
+                        console.log('✅ Image chargée pour preview');
                         setImagePreview(reader.result);
+                        setImageInputKey(Date.now()); // Reset l'input
                     };
                     reader.readAsDataURL(file);
                 }
@@ -361,6 +416,13 @@ const handleSubmit = async (e) => {
                 }
             }
         });
+        
+        // Ajouter les IDs des images à supprimer
+        if (imagesToDelete.length > 0) {
+            imagesToDelete.forEach((imageId) => {
+                formDataToSend.append('images_to_delete[]', imageId);
+            });
+        }
 
         // Pour la mise à jour
         if (editingProduct) {
@@ -1136,22 +1198,38 @@ const duplicateProduct = async (product) => {
                                                 <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-purple-400 transition-colors">
                                                     <div className="space-y-1 text-center">
                                                         {imagePreview ? (
-                                                            <div className="relative">
-                                                                <img
-                                                                    src={imagePreview}
-                                                                    alt="Aperçu"
-                                                                    className="mx-auto h-32 w-32 object-cover rounded-lg"
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setImagePreview(null);
-                                                                        setFormData(prev => ({ ...prev, image_principale: null }));
-                                                                    }}
-                                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                                                                >
-                                                                    <X className="w-3 h-3" />
-                                                                </button>
+                                                            <div className="space-y-4">
+                                                                <div className="relative">
+                                                                    <img
+                                                                        src={imagePreview}
+                                                                        alt="Aperçu"
+                                                                        className="mx-auto h-32 w-32 object-cover rounded-lg"
+                                                                    />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setImagePreview(null);
+                                                                            setFormData(prev => ({ ...prev, image_principale: null }));
+                                                                            setImageInputKey(Date.now());
+                                                                        }}
+                                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                                                    >
+                                                                        <X className="w-3 h-3" />
+                                                                    </button>
+                                                                </div>
+                                                                <div className="text-center">
+                                                                    <label className="relative cursor-pointer bg-purple-600 text-white px-4 py-2 rounded-md font-medium hover:bg-purple-700 inline-block">
+                                                                        <span>Changer l'image</span>
+                                                                        <input
+                                                                            key={imageInputKey}
+                                                                            type="file"
+                                                                            name="image_principale"
+                                                                            accept="image/*"
+                                                                            onChange={handleFormChange}
+                                                                            className="sr-only"
+                                                                        />
+                                                                    </label>
+                                                                </div>
                                                             </div>
                                                         ) : (
                                                             <>
@@ -1183,6 +1261,38 @@ const duplicateProduct = async (product) => {
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                                     Images supplémentaires
                                                 </label>
+                                                
+                                                {/* Images existantes */}
+                                                {existingImages.length > 0 && (
+                                                    <div className="mb-3">
+                                                        <p className="text-xs text-gray-500 mb-2">Images actuelles :</p>
+                                                        <div className="grid grid-cols-4 gap-2">
+                                                            {existingImages.map((image) => (
+                                                                <div key={image.id} className="relative group">
+                                                                    <img
+                                                                        src={image.url_miniature || image.url_originale}
+                                                                        alt={image.alt_text || 'Image produit'}
+                                                                        className="h-20 w-20 object-cover rounded"
+                                                                    />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            // Ajouter l'ID à la liste de suppression
+                                                                            setImagesToDelete(prev => [...prev, image.id]);
+                                                                            // Retirer de la liste des images existantes
+                                                                            setExistingImages(prev => prev.filter(img => img.id !== image.id));
+                                                                        }}
+                                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                    >
+                                                                        <X className="w-3 h-3" />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Nouvelles images à ajouter */}
                                                 <input
                                                     type="file"
                                                     name="images"
@@ -1192,15 +1302,33 @@ const duplicateProduct = async (product) => {
                                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                                 />
                                                 {multipleImages.length > 0 && (
-                                                    <div className="mt-2 grid grid-cols-3 gap-2">
-                                                        {multipleImages.map((image, index) => (
-                                                            <img
-                                                                key={index}
-                                                                src={image}
-                                                                alt={`Aperçu ${index + 1}`}
-                                                                className="h-20 w-20 object-cover rounded"
-                                                            />
-                                                        ))}
+                                                    <div className="mt-2">
+                                                        <p className="text-xs text-gray-500 mb-2">Nouvelles images à ajouter :</p>
+                                                        <div className="grid grid-cols-4 gap-2">
+                                                            {multipleImages.map((image, index) => (
+                                                                <div key={index} className="relative group">
+                                                                    <img
+                                                                        src={image}
+                                                                        alt={`Aperçu ${index + 1}`}
+                                                                        className="h-20 w-20 object-cover rounded"
+                                                                    />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setMultipleImages(prev => prev.filter((_, i) => i !== index));
+                                                                            // Aussi retirer du formData
+                                                                            setFormData(prev => ({
+                                                                                ...prev,
+                                                                                images: prev.images?.filter((_, i) => i !== index) || []
+                                                                            }));
+                                                                        }}
+                                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                    >
+                                                                        <X className="w-3 h-3" />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>

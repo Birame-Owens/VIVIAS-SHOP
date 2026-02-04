@@ -221,7 +221,7 @@ const ReportDetailsModal = ({
                 </div>
 
                 {/* Analyse par catégorie */}
-                {categories && (
+                {categories && categories.length > 0 && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="bg-white border rounded-lg p-4">
                             <h4 className="text-lg font-semibold mb-4">Répartition par catégorie</h4>
@@ -235,6 +235,7 @@ const ReportDetailsModal = ({
                                             outerRadius={80}
                                             dataKey="chiffre_affaires"
                                             nameKey="categorie"
+                                            label
                                         >
                                             {categories.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />

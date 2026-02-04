@@ -41,10 +41,13 @@ const Categories = () => {
     const [imagePreview, setImagePreview] = useState(null);
 
     const API_BASE = '/api/admin';
-    const getHeaders = () => ({
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-    });
+    const getHeaders = () => {
+        console.log('🔑 Token actuel:', token ? token.substring(0, 20) + '...' : 'AUCUN TOKEN');
+        return {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+        };
+    };
 
     // Charger les catégories
     const loadCategories = async () => {
@@ -58,19 +61,26 @@ const Categories = () => {
                 direction: sortDirection
             });
 
+            console.log('📡 Chargement catégories...');
             const response = await fetch(`${API_BASE}/categories?${params}`, {
                 headers: getHeaders()
             });
 
-            if (!response.ok) throw new Error('Erreur lors du chargement');
+            console.log('📥 Response status:', response.status);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Erreur response:', errorText);
+                throw new Error('Erreur lors du chargement');
+            }
 
             const result = await response.json();
+            console.log('✅ Résultat:', result);
             if (result.success) {
                 setCategories(result.data.categories);
                 setPagination(result.data.pagination);
             }
         } catch (error) {
-            console.error('Erreur:', error);
+            console.error('❌ Erreur:', error);
             toast.error('Erreur lors du chargement des catégories');
         } finally {
             setLoading(false);

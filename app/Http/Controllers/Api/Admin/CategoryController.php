@@ -156,9 +156,19 @@ class CategoryController extends Controller
     public function show(Category $category): JsonResponse
     {
         try {
-            $category->load(['produits' => function ($query) {
-                $query->where('est_visible', true)->take(10);
-            }]);
+            $category->load([
+                'produits' => function ($query) {
+                    $query->where('est_visible', true);
+                },
+                'categories' => function ($query) {
+                    $query->where('est_active', true);
+                }
+            ]);
+
+            // Statistiques détaillées
+            $produitsVisibles = $category->produits->where('est_visible', true)->count();
+            $produitsTotalBD = $category->produits()->count();
+            $produitsEnStock = $category->produits->where('stock_disponible', '>', 0)->count();
 
             return response()->json([
                 'success' => true,
@@ -175,14 +185,34 @@ class CategoryController extends Controller
                         'est_populaire' => $category->est_populaire,
                         'couleur_theme' => $category->couleur_theme,
                         'meta_donnees' => $category->meta_donnees ? json_decode($category->meta_donnees) : null,
-                        'produits_count' => $category->produits->count(),
-                        'produits' => $category->produits->map(function ($produit) {
+                        'statistics' => [
+                            'produits_total' => $produitsTotalBD,
+                            'produits_visibles' => $produitsVisibles,
+                            'produits_en_stock' => $produitsEnStock,
+                            'sous_categories' => $category->categories->count(),
+                            'visibilite_cote_client' => [
+                                'est_visible' => $category->est_active && $produitsVisibles > 0,
+                                'raison' => $this->getVisibilityReason($category, $produitsVisibles)
+                            ]
+                        ],
+                        'sous_categories' => $category->categories->map(function ($cat) {
+                            return [
+                                'id' => $cat->id,
+                                'nom' => $cat->nom,
+                                'slug' => $cat->slug,
+                                'est_active' => $cat->est_active,
+                            ];
+                        }),
+                        'produits_count' => $produitsVisibles,
+                        'produits' => $category->produits->take(10)->map(function ($produit) {
                             return [
                                 'id' => $produit->id,
                                 'nom' => $produit->nom,
+                                'slug' => $produit->slug,
                                 'prix' => $produit->prix,
                                 'image_principale' => $produit->image_principale ? asset('storage/' . $produit->image_principale) : null,
                                 'stock_disponible' => $produit->stock_disponible,
+                                'est_visible' => $produit->est_visible,
                             ];
                         }),
                         'created_at' => $category->created_at->format('d/m/Y H:i'),
@@ -363,10 +393,15 @@ class CategoryController extends Controller
             $category->update(['est_active' => !$category->est_active]);
 
             $status = $category->est_active ? 'activée' : 'désactivée';
+            
+            // Vérifier la visibilité côté client après changement
+            $produitsVisibles = $category->produits()->where('est_visible', true)->count();
+            $seraVisibleClient = $category->est_active && $produitsVisibles > 0;
 
             Log::info("Catégorie {$status}", [
                 'category_id' => $category->id,
                 'nom' => $category->nom,
+                'sera_visible_client' => $seraVisibleClient,
                 'user_id' => auth()->id()
             ]);
 
@@ -377,7 +412,11 @@ class CategoryController extends Controller
                     'category' => [
                         'id' => $category->id,
                         'nom' => $category->nom,
-                        'est_active' => $category->est_active
+                        'est_active' => $category->est_active,
+                        'visibilite_client' => [
+                            'sera_visible' => $seraVisibleClient,
+                            'raison' => $this->getVisibilityReason($category, $produitsVisibles)
+                        ]
                     ]
                 ]
             ]);
@@ -393,5 +432,21 @@ class CategoryController extends Controller
                 'message' => 'Erreur lors du changement de statut'
             ], 500);
         }
+    }
+
+    /**
+     * Retourne la raison pour laquelle une catégorie est/n'est pas visible côté client
+     */
+    private function getVisibilityReason(Category $category, int $produitsVisibles): string
+    {
+        if (!$category->est_active) {
+            return 'Catégorie désactivée';
+        }
+        
+        if ($produitsVisibles === 0) {
+            return 'Aucun produit visible dans cette catégorie';
+        }
+        
+        return 'Catégorie visible côté client';
     }
 }

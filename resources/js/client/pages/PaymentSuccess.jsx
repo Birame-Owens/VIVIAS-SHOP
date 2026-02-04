@@ -45,10 +45,8 @@ export default function PaymentSuccess() {
                     setTestimonials(homeRes.data.testimonials.slice(0, 3)); // 3 avis seulement
                 }
 
-                // Logique de commande
-                if (orderNumber && sessionId) {
-                    await confirmPaymentAndLoadOrder();
-                } else if (orderNumber) {
+                // Logique de commande - charger immédiatement sans attendre
+                if (orderNumber) {
                     await loadOrderDetails();
                 } else {
                     setError('Numéro de commande manquant');
@@ -61,6 +59,48 @@ export default function PaymentSuccess() {
         };
         initData();
     }, [orderNumber, sessionId]);
+
+    // 2. Polling pour vérifier la confirmation PayTech
+    useEffect(() => {
+        if (!commande || !orderNumber) return;
+        
+        // Si la commande est déjà confirmée, pas besoin de polling
+        if (commande.statut === 'confirmee' || commande.statut === 'paye') {
+            console.log('✅ Commande déjà confirmée, pas de polling');
+            return;
+        }
+
+        console.log('🔄 Démarrage polling statut commande...');
+        let pollCount = 0;
+        const maxPolls = 30; // 30 tentatives = 1 minute (2s interval)
+
+        const pollInterval = setInterval(async () => {
+            pollCount++;
+            console.log(`🔄 Polling ${pollCount}/${maxPolls}...`);
+
+            try {
+                const response = await api.get(`/client/commandes/${orderNumber}`);
+                if (response && response.success && response.data) {
+                    const updatedCommande = response.data;
+                    
+                    // Vérifier si le statut a changé
+                    if (updatedCommande.statut === 'confirmee' || updatedCommande.statut === 'paye') {
+                        console.log('🎉 Commande confirmée par webhook!');
+                        setCommande(updatedCommande);
+                        clearInterval(pollInterval);
+                    } else if (pollCount >= maxPolls) {
+                        console.log('⏱️ Timeout polling - webhook non reçu');
+                        clearInterval(pollInterval);
+                    }
+                }
+            } catch (err) {
+                console.error('❌ Erreur polling:', err);
+            }
+        }, 2000); // Vérifier toutes les 2 secondes
+
+        // Cleanup
+        return () => clearInterval(pollInterval);
+    }, [commande, orderNumber]);
 
     const confirmPaymentAndLoadOrder = async () => {
         try {
@@ -80,6 +120,28 @@ export default function PaymentSuccess() {
                     setCommande(commandeData);
                     clearCart();
                     setCartCount(0);
+                    
+                    // 🔥 NOUVEAU : Vérifier si l'utilisateur est maintenant connecté après checkout invité
+                    try {
+                        const authResponse = await api.get('/client/auth/user');
+                        console.log('🔐 Vérification authentification:', authResponse);
+                        
+                        if (authResponse.success && authResponse.data) {
+                            console.log('✅ Utilisateur auto-connecté:', authResponse.data.email);
+                            
+                            // Stocker les infos utilisateur
+                            localStorage.setItem('user', JSON.stringify(authResponse.data));
+                            
+                            // Afficher un message pour informer l'utilisateur
+                            if (authResponse.data.is_new_account) {
+                                console.log('🎉 Nouveau compte créé pour:', authResponse.data.email);
+                                // Vous pouvez afficher un toast ici si vous le souhaitez
+                            }
+                        }
+                    } catch (authErr) {
+                        console.log('ℹ️ Pas de session créée (checkout sans compte invité)');
+                    }
+                    
                     setError(null);
                 } else {
                     console.warn('⚠️ Pas de données commande, tentative de rechargement');
@@ -102,31 +164,29 @@ export default function PaymentSuccess() {
     const loadOrderDetails = async () => {
         try {
             console.log('🔍 Chargement commande:', orderNumber);
-            console.log('🔍 URL complète:', `/client/commandes/${orderNumber}`);
             
             const response = await api.get(`/client/commandes/${orderNumber}`);
-            console.log('📦 Réponse COMPLÈTE API:', response);
-            console.log('📦 response.data:', response.data);
-            console.log('📦 response.success:', response.success);
+            console.log('📦 Réponse API:', response);
             
-            // CORRECTION: response est déjà l'objet de données, pas besoin de .data
             if (response && response.success && response.data) {
                 setCommande(response.data);
                 clearCart();
                 setCartCount(0);
                 setError(null);
+                setLoading(false);
                 console.log('✅ Commande chargée:', response.data.numero_commande);
+                console.log('📊 Statut:', response.data.statut);
                 return true;
             } else {
-                console.error('❌ Réponse invalide. response:', response);
+                console.error('❌ Réponse invalide');
                 setError('Commande introuvable');
+                setLoading(false);
                 return false;
             }
         } catch (err) {
             console.error('❌ Erreur chargement commande:', err);
-            console.error('❌ Type erreur:', err.constructor.name);
-            console.error('❌ Message:', err.message);
             setError('Impossible de charger les détails de la commande');
+            setLoading(false);
             return false;
         }
     };
@@ -191,11 +251,27 @@ export default function PaymentSuccess() {
                             Merci {commande?.client?.prenom || commande?.prenom || commande?.nom_destinataire?.split(' ')[1] || 'Cher client'}
                         </h1>
                         <p className="text-sm text-neutral-500 uppercase tracking-widest font-medium">
-                            Votre commande a été confirmée
+                            {commande?.statut === 'confirmee' || commande?.statut === 'paye' 
+                                ? 'Votre commande a été confirmée' 
+                                : 'Votre commande est enregistrée'}
                         </p>
+                        {(commande?.statut === 'en_attente' || commande?.statut === 'pending') && (
+                            <div className="mt-4 space-y-2">
+                                <div className="flex items-center justify-center gap-2">
+                                    <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+                                    <span className="text-[10px] uppercase tracking-widest text-neutral-400">
+                                        Vérification du paiement...
+                                    </span>
+                                </div>
+                                <p className="text-[9px] text-neutral-400 max-w-md mx-auto">
+                                    Votre paiement a été effectué. La confirmation finale peut prendre quelques instants. 
+                                    Vous recevrez un email de confirmation dès validation.
+                                </p>
+                            </div>
+                        )}
                         {simulated && (
                             <span className="inline-block mt-4 px-3 py-1 bg-neutral-100 text-[10px] uppercase tracking-widest text-neutral-500">
-                                Mode Simulation
+                                Mode Test
                             </span>
                         )}
                     </div>

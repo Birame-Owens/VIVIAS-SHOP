@@ -76,14 +76,10 @@ export const AuthProvider = ({ children }) => {
         };
       }
     } catch (error) {
-      // Ne pas logger les erreurs de connexion en production (sécurité)
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Erreur login:', error);
-      }
-      
+      // Ne pas logger les erreurs de connexion (sécurité et UX)
       return { 
         success: false, 
-        message: error.response?.data?.message || 'Erreur de connexion' 
+        message: error.message || 'Email ou mot de passe incorrect' 
       };
     }
   };
@@ -91,6 +87,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await api.register(userData);
+      console.log('✅ Register API response:', response);
       
       if (response.success) {
         const { user: newUser, token } = response.data;
@@ -104,16 +101,40 @@ export const AuthProvider = ({ children }) => {
         
         return { success: true, user: newUser };
       } else {
+        console.log('⚠️ Register failed:', response.message);
         return { 
           success: false, 
           message: response.message || 'Erreur lors de l\'inscription' 
         };
       }
     } catch (error) {
-      console.error('Erreur register:', error);
+      console.error('❌ Register error caught:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        fullError: error
+      });
+      
+      // Gérer les erreurs de validation (422)
+      if (error.response?.status === 422 && error.response?.data?.errors) {
+        const errors = error.response.data.errors;
+        console.log('📋 Validation errors:', errors);
+        // Récupérer le premier message d'erreur
+        const firstError = Object.values(errors)[0];
+        const errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+        console.log('📝 First error message:', errorMessage);
+        return { 
+          success: false, 
+          message: errorMessage
+        };
+      }
+      
+      // Sinon utiliser le message de la réponse
+      const errorMessage = error.response?.data?.message || error.message || 'Erreur lors de l\'inscription';
+      console.log('📝 Final error message:', errorMessage);
       return { 
         success: false, 
-        message: error.response?.data?.message || 'Erreur lors de l\'inscription' 
+        message: errorMessage
       };
     }
   };

@@ -470,8 +470,21 @@ class CartService
 
     private function calculateShipping(float $subtotal): float
     {
-        $freeShippingThreshold = config('app.free_shipping_threshold', 50000);
-        return $subtotal >= $freeShippingThreshold ? 0 : 2500;
+        // Récupérer les paramètres de livraison depuis la base de données
+        $shippingSettings = \App\Models\ShippingSetting::getSettings();
+        
+        // Si la livraison est désactivée, retourner 0
+        if (!$shippingSettings->is_enabled) {
+            return 0;
+        }
+        
+        // Appliquer la livraison gratuite si le seuil est atteint
+        if ($subtotal >= $shippingSettings->free_threshold) {
+            return 0;
+        }
+        
+        // Retourner les frais par défaut
+        return $shippingSettings->default_cost;
     }
 
     private function generateItemId(int $productId, array $options): string

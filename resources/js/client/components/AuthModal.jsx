@@ -36,10 +36,10 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
         // Recharger la page pour mettre à jour le state global
         window.location.reload();
       } else {
-        setError(result.message);
+        setError(result.message || 'Email ou mot de passe incorrect');
       }
     } catch (err) {
-      setError('Une erreur est survenue');
+      setError(err.message || 'Email ou mot de passe incorrect');
     } finally {
       setLoading(false);
     }
@@ -63,16 +63,21 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
     setLoading(true);
 
     try {
+      console.log('📤 Données envoyées:', registerData);
       const result = await register(registerData);
+      console.log('📥 Résultat reçu:', result);
       
       if (result.success) {
         onClose();
         window.location.reload();
       } else {
-        setError(result.message);
+        setError(result.message || 'Une erreur est survenue');
       }
     } catch (err) {
-      setError('Une erreur est survenue');
+      console.error('❌ Erreur complète:', err);
+      // Afficher le message d'erreur spécifique du serveur
+      const errorMessage = err.response?.data?.message || err.message || 'Une erreur est survenue';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -145,6 +150,20 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                     placeholder="••••••••"
                   />
                 </div>
+              </div>
+
+              <div className="text-right">
+                <a 
+                  href="/forgot-password"
+                  className="text-xs text-neutral-500 hover:text-black uppercase tracking-widest transition-colors"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onClose();
+                    window.location.href = '/forgot-password';
+                  }}
+                >
+                  Mot de passe oublié ?
+                </a>
               </div>
 
               <button

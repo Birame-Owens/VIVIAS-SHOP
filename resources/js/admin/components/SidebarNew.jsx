@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   LayoutDashboard, Package, ShoppingCart, Users, Tag, CreditCard, 
-  Percent, Star, BarChart3, LogOut, X, Menu, Send
+  Percent, Star, BarChart3, LogOut, X, Menu, Send, Truck
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -19,6 +19,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Clients', icon: Users, path: '/admin/clients', active: true },
         { name: 'Paiements', icon: CreditCard, path: '/admin/paiements', active: true },
         { name: 'Promotions', icon: Percent, path: '/admin/promotions', active: true },
+        { name: 'Livraison', icon: Truck, path: '/admin/shipping-settings', active: true },
         { name: 'Avis Clients', icon: Star, path: '/admin/avis-clients', active: true },
         { name: 'Messages', icon: Send, path: '/admin/messages', active: true },
         { name: 'Rapports', icon: BarChart3, path: '/admin/rapports', active: true },
@@ -43,14 +44,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
             {/* Sidebar */}
             <aside className={`
-                fixed top-0 left-0 z-50 h-full
+                fixed top-0 left-0 z-50 h-screen
                 w-64 bg-white border-r border-neutral-100
                 transform transition-transform duration-300 ease-in-out
-                lg:translate-x-0
+                lg:translate-x-0 flex flex-col
                 ${isOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>
                 {/* Header */}
-                <div className="h-20 border-b border-neutral-100 flex items-center justify-between px-6">
+                <div className="h-20 border-b border-neutral-100 flex items-center justify-between px-6 flex-shrink-0">
                     <button onClick={() => navigate('/admin/dashboard')} className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center">
                             <span className="text-white font-bold text-sm">V</span>
@@ -104,15 +105,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 </nav>
 
                 {/* User Profile & Logout */}
-                <div className="border-t border-neutral-100 p-4">
-                    <div className="bg-neutral-50 rounded-lg p-3 mb-2">
-                        <p className="text-xs font-bold uppercase tracking-wide text-black truncate">
-                            {user?.nom || 'Admin'}
-                        </p>
-                        <p className="text-[10px] text-neutral-400 truncate">
-                            {user?.email || 'admin@vivias.shop'}
-                        </p>
-                    </div>
+                <div className="border-t border-neutral-100 p-4 flex-shrink-0">
+                    
                     <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-2 px-4 py-3 text-xs font-medium uppercase tracking-wide

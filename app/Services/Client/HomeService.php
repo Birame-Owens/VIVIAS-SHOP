@@ -450,7 +450,10 @@ class HomeService
         'image' => $imageUrl,
         'url' => '/products/' . $produit->slug,
         'est_nouveaute' => $produit->est_nouveaute,
-        'est_populaire' => $produit->est_populaire
+        'est_populaire' => $produit->est_populaire,
+        // 📦 Informations de stock (toujours incluses)
+        'stock_quantite' => $produit->gestion_stock ? ($produit->stock_disponible ?? 0) : 999,
+        'en_stock' => !$produit->gestion_stock || ($produit->stock_disponible ?? 0) > 0
     ];
 
     if (!$isCompact) {

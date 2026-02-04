@@ -19,10 +19,11 @@ const SimpleFooter = () => (
 const CheckoutPage = () => {
   const navigate = useNavigate();
   const { user: authUser, isAuthenticated, checkAuth } = useAuth();
-  const { items, total, subtotal, shipping, discount, coupon, syncCart } = useCartStore();
+  const { items, total, subtotal, shipping, discount, coupon, syncCart, clearCart } = useCartStore();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('stripe');
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
   
   // États pour la Navbar
   const [categories, setCategories] = useState([]);
@@ -146,8 +147,24 @@ const CheckoutPage = () => {
 
       const commande = orderResult.data.commande;
 
-      // ✅ Vérifier si l'utilisateur a été connecté automatiquement
-      await checkAuth();
+      // ✅ Si compte créé automatiquement, stocker le token
+      if (orderResult.auth && orderResult.auth.token) {
+        localStorage.setItem('auth_token', orderResult.auth.token);
+        localStorage.setItem('user', JSON.stringify(orderResult.auth.user));
+        
+        console.log('✅ Utilisateur connecté automatiquement:', orderResult.auth.user.email);
+        
+        toast.success('🎉 Compte créé ! Vous êtes maintenant connecté.', { duration: 3000 });
+        
+        // Vider le panier localement
+        clearCart();
+        
+        // Forcer rechargement pour actualiser le contexte d'authentification
+        await checkAuth();
+      } else {
+        // Vérifier l'authentification
+        await checkAuth();
+      }
 
       // Initier le paiement
       const paymentResponse = await fetch(`/api/client/checkout/payment/${commande.numero_commande}`, {
@@ -182,20 +199,25 @@ const CheckoutPage = () => {
       
       // Vérifier si c'est une erreur "email déjà utilisé"
       if (error.message && error.message.includes('compte existe déjà')) {
+        const errorMsg = 'Cet email est déjà utilisé. Veuillez vous connecter ou utilisez un autre email.';
+        setErrorMessage(errorMsg);
+        
         toast.error(
           <div>
-            <p className="font-bold">Email déjà utilisé</p>
-            <p className="text-sm">Cet email est déjà associé à un compte. Veuillez vous connecter pour continuer.</p>
+            <p className="font-bold">⚠️ Email déjà utilisé</p>
+            <p className="text-sm">Veuillez vous connecter pour continuer votre commande.</p>
           </div>,
-          { duration: 6000 }
+          { duration: 8000 }
         );
         
-        // Ne PAS ouvrir automatiquement la modale - laissez l'utilisateur décider
-        // setTimeout(() => {
-        //   setAuthModalOpen(true);
-        // }, 2000);
+        // Ouvrir la modale de connexion après 2 secondes
+        setTimeout(() => {
+          setAuthModalOpen(true);
+        }, 2000);
       } else {
-        toast.error(error.message || 'Une erreur est survenue lors de la commande');
+        const errorMsg = error.message || 'Une erreur est survenue lors de la commande';
+        setErrorMessage(errorMsg);
+        toast.error(errorMsg, { duration: 6000 });
       }
     } finally {
       setIsProcessing(false);
@@ -258,6 +280,41 @@ const CheckoutPage = () => {
           {/* GAUCHE : FORMULAIRE */}
           <div className="lg:col-span-2 space-y-12">
             
+            {/* Message d'erreur visible */}
+            {errorMessage && (
+              <div className="bg-red-50 border-2 border-red-500 p-6 rounded-sm">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-bold text-red-800 uppercase tracking-wider mb-2">Erreur</h3>
+                    <p className="text-sm text-red-700">{errorMessage}</p>
+                    {errorMessage.includes('email') && (
+                      <button
+                        type="button"
+                        onClick={() => { setErrorMessage(null); setAuthModalOpen(true); }}
+                        className="mt-3 text-xs font-bold uppercase tracking-widest text-red-800 hover:text-red-900 underline"
+                      >
+                        Se connecter maintenant
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setErrorMessage(null)}
+                    className="flex-shrink-0 text-red-500 hover:text-red-700"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Login / Guest Block */}
             {!isAuthenticated && (
               <div className="bg-white border border-neutral-200 p-8 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -450,7 +507,7 @@ const CheckoutPage = () => {
                         </span>
                         <img src="/assets/images/wave logo.png" alt="Wave" className="h-6 object-contain" />
                       </div>
-                      <p className="text-xs text-neutral-500">Paiement mobile via application Wave (NexPay).</p>
+                      <p className="text-xs text-neutral-500">Paiement mobile via application Wave (PayTech).</p>
                     </div>
                   </label>
 
@@ -473,7 +530,7 @@ const CheckoutPage = () => {
                         </span>
                         <img src="/assets/images/orange-money.jpg" alt="Orange Money" className="h-6 object-contain rounded-sm" />
                       </div>
-                      <p className="text-xs text-neutral-500">Paiement mobile sécurisé (NexPay).</p>
+                      <p className="text-xs text-neutral-500">Paiement mobile sécurisé (PayTech).</p>
                     </div>
                   </label>
                 </div>

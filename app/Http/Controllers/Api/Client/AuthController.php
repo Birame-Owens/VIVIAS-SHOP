@@ -21,7 +21,11 @@ class AuthController extends Controller
     {
         try {
             $validated = $request->validated();
+            \Log::info('📥 Register - Données validées', $validated);
+            
             $result = $this->authService->register($validated);
+            
+            \Log::info('✅ Register - Résultat', ['success' => $result['success']]);
 
             if ($result['success']) {
                 return response()->json($result, 201);
@@ -30,6 +34,10 @@ class AuthController extends Controller
             return response()->json($result, 400);
 
         } catch (\Exception $e) {
+            \Log::error('❌ Register - Erreur', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de l\'inscription'

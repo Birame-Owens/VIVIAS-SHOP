@@ -504,17 +504,17 @@ const Paiements = () => {
                                                     </div>
                                                 )}
                                                 <div className="text-xs text-gray-500">
-                                                    {paiement.commande.numero_commande}
+                                                    {paiement.commande?.numero_commande || 'Commande supprimée'}
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div>
                                                 <div className="text-sm font-medium text-gray-900">
-                                                    {paiement.client.nom_complet}
+                                                    {paiement.client?.nom_complet || 'Client supprimé'}
                                                 </div>
                                                 <div className="text-sm text-gray-500">
-                                                    {paiement.client.telephone}
+                                                    {paiement.client?.telephone || '-'}
                                                 </div>
                                             </div>
                                         </td>
@@ -870,19 +870,27 @@ const PaiementDetailsModal = ({
                                 </div>
                             </div>
 
-                            <div className="bg-gray-50 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-3">Commande</h3>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Numéro</span>
-                                        <span className="font-medium">{paiement.commande.numero_commande}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Montant total</span>
-                                        <span className="font-bold">{formatPrice(paiement.commande.montant_total)}</span>
+                            {paiement.commande && (
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Commande</h3>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Numéro</span>
+                                            <span className="font-medium">{paiement.commande.numero_commande}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Montant total</span>
+                                            <span className="font-bold">{formatPrice(paiement.commande.montant_total)}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
+                            
+                            {!paiement.commande && (
+                                <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+                                    <p className="text-yellow-800 text-sm">⚠️ La commande associée a été supprimée</p>
+                                </div>
+                            )}
 
                             {/* Messages et notes */}
                             {(paiement.message_retour || paiement.notes_admin || paiement.commentaire_client) && (

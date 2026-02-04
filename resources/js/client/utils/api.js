@@ -148,6 +148,10 @@ class ApiService {
               localStorage.removeItem('user');
               // Ne pas recharger automatiquement pour éviter les boucles
             }
+            // Message plus spécifique pour 401 (identifiants incorrects)
+            if (response.status === 401) {
+              throw new Error('Email ou mot de passe incorrect');
+            }
             throw new Error(data.message || 'Erreur API');
           }
           return data;
@@ -159,7 +163,10 @@ class ApiService {
         }
       })
       .catch((error) => {
-        console.error('🔴 API Error:', error);
+        // Ne pas logger les erreurs 401 (identifiants incorrects) pour éviter spam console
+        if (!error.message?.includes('incorrect')) {
+          console.error('🔴 API Error:', error);
+        }
         throw error;
       })
       .finally(() => {

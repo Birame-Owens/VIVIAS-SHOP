@@ -326,9 +326,31 @@ const ProductCard = ({ product, onAddToCart, onWhatsApp, onNavigate }) => {
           {product.en_promo && <span className="bg-red-600 text-white text-[9px] font-bold px-2 py-1 uppercase tracking-wider">- Promo -</span>}
           {product.est_nouveaute && <span className="bg-white text-black text-[9px] font-bold px-2 py-1 uppercase tracking-wider shadow-sm">New</span>}
         </div>
+        
+        {/* 📌 BADGE STOCK - Seuil d'alerte */}
+        {product.stock_quantite !== undefined && product.stock_quantite > 0 && product.stock_quantite <= 5 && (
+          <div className="absolute top-2 right-2 bg-orange-500 text-white text-[9px] font-bold px-2 py-1 uppercase tracking-wider z-10">
+            Plus que {product.stock_quantite}
+          </div>
+        )}
+        
+        {/* 🚫 BADGE RUPTURE DE STOCK */}
+        {product.stock_quantite === 0 && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20">
+            <span className="bg-red-600 text-white text-xs font-bold px-4 py-2 uppercase tracking-wider">Rupture de stock</span>
+          </div>
+        )}
         <div className="absolute bottom-0 left-0 right-0 flex flex-col translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-20">
-            <button onClick={(e) => { e.stopPropagation(); onAddToCart(product.id); }} className="bg-white text-black py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors border-t border-gray-100 flex items-center justify-center gap-2">
-              <ShoppingBag className="w-3 h-3" /> Ajouter
+            <button 
+              onClick={(e) => { e.stopPropagation(); if (product.stock_quantite > 0) onAddToCart(product.id); }} 
+              disabled={product.stock_quantite === 0}
+              className={`py-3 text-[10px] font-bold uppercase tracking-widest transition-colors border-t border-gray-100 flex items-center justify-center gap-2 ${
+                product.stock_quantite === 0 
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                  : 'bg-white text-black hover:bg-black hover:text-white'
+              }`}
+            >
+              <ShoppingBag className="w-3 h-3" /> {product.stock_quantite === 0 ? 'Indisponible' : 'Ajouter'}
             </button>
             <button onClick={(e) => { e.stopPropagation(); onWhatsApp(product); }} className="bg-[#25D366] text-white py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-[#128C7E] transition-colors flex items-center justify-center gap-2">
               <MessageCircle className="w-3 h-3" /> WhatsApp

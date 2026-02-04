@@ -199,7 +199,9 @@ class ProduitController extends Controller
             }
 
             DB::commit();
-
+            // Vider le cache des produits côté client
+            \Cache::forget('products:list:' . md5(json_encode([])));
+            \Cache::forget('home_page_data_' . now()->format('Y-m-d-H'));
             Log::info('Nouveau produit créé', [
                 'produit_id' => $produit->id,
                 'nom' => $produit->nom,
@@ -310,12 +312,48 @@ class ProduitController extends Controller
 
             $produit->update($validatedData);
 
+            // Supprimer les images marquées pour suppression
+            if ($request->has('images_to_delete')) {
+                $imagesToDelete = $request->input('images_to_delete', []);
+                if (is_array($imagesToDelete) && count($imagesToDelete) > 0) {
+                    foreach ($imagesToDelete as $imageId) {
+                        $image = ImagesProduit::find($imageId);
+                        if ($image && $image->produit_id === $produit->id) {
+                            // Supprimer les fichiers physiques
+                            if ($image->chemin_original && Storage::disk('public')->exists($image->chemin_original)) {
+                                Storage::disk('public')->delete($image->chemin_original);
+                            }
+                            if ($image->chemin_miniature && Storage::disk('public')->exists($image->chemin_miniature)) {
+                                Storage::disk('public')->delete($image->chemin_miniature);
+                            }
+                            if ($image->chemin_moyen && Storage::disk('public')->exists($image->chemin_moyen)) {
+                                Storage::disk('public')->delete($image->chemin_moyen);
+                            }
+                            
+                            // Supprimer l'enregistrement
+                            $image->delete();
+                            
+                            Log::info('Image supprimée', [
+                                'image_id' => $imageId,
+                                'produit_id' => $produit->id
+                            ]);
+                        }
+                    }
+                }
+            }
+
             // Gestion des nouvelles images
             if ($request->hasFile('images')) {
                 $this->handleProductImages($produit, $request->file('images'));
             }
 
             DB::commit();
+
+            // Vider le cache des produits côté client
+            \Cache::forget('products:list:' . md5(json_encode([])));
+            \Cache::forget('product:detail:' . $produit->slug);
+            // Vider aussi le cache de la page d'accueil pour les badges Nouveau/Populaire
+            \Cache::forget('home_page_data_' . now()->format('Y-m-d-H'));
 
             Log::info('Produit mis à jour', [
                 'produit_id' => $produit->id,
@@ -383,9 +421,16 @@ class ProduitController extends Controller
             }
 
             $produitNom = $produit->nom;
+            $produitSlug = $produit->slug;
             $produit->delete();
 
             DB::commit();
+
+            // Vider le cache des produits côté client
+            \Cache::forget('products:list:' . md5(json_encode([])));
+            \Cache::forget('product:detail:' . $produitSlug);
+            // Vider aussi le cache de la page d'accueil
+            \Cache::forget('home_page_data_' . now()->format('Y-m-d-H'));
 
             Log::info('Produit supprimé', [
                 'produit_nom' => $produitNom,
@@ -421,10 +466,16 @@ class ProduitController extends Controller
             $produit->update(['est_visible' => !$produit->est_visible]);
 
             $status = $produit->est_visible ? 'activé' : 'désactivé';
+            
+            // Vérifier si la catégorie est visible côté client
+            $categoryActive = $produit->category && $produit->category->est_active;
+            $seraVisibleClient = $produit->est_visible && $categoryActive;
 
             Log::info("Produit {$status}", [
                 'produit_id' => $produit->id,
                 'nom' => $produit->nom,
+                'sera_visible_client' => $seraVisibleClient,
+                'category_active' => $categoryActive,
                 'user_id' => auth()->id()
             ]);
 
@@ -435,7 +486,11 @@ class ProduitController extends Controller
                     'produit' => [
                         'id' => $produit->id,
                         'nom' => $produit->nom,
-                        'est_visible' => $produit->est_visible
+                        'est_visible' => $produit->est_visible,
+                        'visibilite_client' => [
+                            'sera_visible' => $seraVisibleClient,
+                            'raison' => $this->getProductVisibilityReason($produit, $categoryActive)
+                        ]
                     ]
                 ]
             ]);
@@ -761,5 +816,21 @@ class ProduitController extends Controller
             'label' => 'En stock',
             'color' => 'green'
         ];
+    }
+
+    /**
+     * Retourne la raison pour laquelle un produit est/n'est pas visible côté client
+     */
+    private function getProductVisibilityReason(Produit $produit, bool $categoryActive): string
+    {
+        if (!$produit->est_visible) {
+            return 'Produit désactivé';
+        }
+        
+        if (!$categoryActive) {
+            return 'Catégorie non active';
+        }
+        
+        return 'Produit visible côté client';
     }
 }

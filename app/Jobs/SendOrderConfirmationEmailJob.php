@@ -38,7 +38,7 @@ class SendOrderConfirmationEmailJob implements ShouldQueue
     public function handle(): void
     {
         try {
-            $commande = $this->commande->load(['client', 'articles.produit', 'paiements']);
+            $commande = $this->commande->load(['client', 'articles_commandes.produit', 'paiements']);
 
             Mail::send('emails.order-confirmation', [
                 'commande' => $commande,

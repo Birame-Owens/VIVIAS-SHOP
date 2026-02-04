@@ -3,6 +3,9 @@
 .env
 .env.backup
 .env.production
+.env.nexpay.example
+.env.ngrok
+.env.production.example
 .phpactor.json
 .phpunit.result.cache
 /.fleet
@@ -22,3 +25,71 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# ==========================================
+# 🚫 FICHIERS DE TEST/DEBUG - NE PAS PUSH
+# ==========================================
+check_*.php
+test_*.php
+find_*.php
+restore_*.php
+deploy-*.ps1
+start-*.ps1
+start-*.sh
+update_*.php
+generate_*.php
+fix_*.php
+confirm_*.php
+create_*.php
+diagnostic_*.php
+clean_*.php
+
+# Scripts
+*.sh
+setup-*.sh
+test-*.ps1
+update-*.ps1
+
+# Fichiers API
+*.json.bak
+*.txt
+nexpay_keys.txt
+ngrok_output.txt
+ngrok_url.txt
+cart_response.json
+
+# Images locales
+/public/images/
+public/assets/images/
+
+# Fichiers de doc (gardez seulement les essentiels)
+ANALYSE_*.md
+CORRECTIONS_*.md
+DEPLOIEMENT_*.md
+GUIDE_*.md
+IMPLEMENTATION_*.md
+INDEX_*.md
+INTEGRATION_*.md
+LISEZMOI_*.md
+MIGRATION_*.md
+NEXPAY_*.md
+OPTIMISATIONS_*.md
+OPTIMISATION_*.md
+PERFORMANCE_*.md
+POSTMAN_*.json
+QUICK_START_*.md
+RAPPORT_*.md
+README_*.md (except important ones)
+RESUME_*.md
+SETUP_*.md
+TRAVAIL_*.md
+VERIFICATION_*.md
+VISUALISATION_*.md
+
+# Fichiers temporaires
+nul
+first()
+artisan
+
+# Build/Deploy scripts
+*.ps1

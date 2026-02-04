@@ -164,9 +164,13 @@ class CheckoutService
         // Connecter automatiquement l'utilisateur
         \Illuminate\Support\Facades\Auth::login($user);
         
+        // ✅ CRÉER TOKEN SANCTUM pour authentification frontend
+        $token = $user->createToken('auth_token')->plainTextToken;
+        
         \Log::info('🔐 Utilisateur connecté automatiquement après création compte', [
             'user_id' => $user->id,
-            'email' => $user->email
+            'email' => $user->email,
+            'token_created' => true
         ]);
 
         $newClient = Client::create([
@@ -185,8 +189,9 @@ class CheckoutService
             'derniere_activite' => now(),
         ]);
 
-        // Stocker le mot de passe temporaire pour l'email
+        // Stocker le mot de passe temporaire et token pour l'email
         $newClient->temporary_password = $temporaryPassword;
+        $newClient->auth_token = $token;
         $newClient->is_new_account = true;
 
         return $newClient;
@@ -274,9 +279,14 @@ class CheckoutService
             }
         }
 
-        // Frais de livraison (gratuit si > 50000 FCFA ou si promo livraison gratuite)
-        $freeShippingThreshold = config('services.shipping.free_threshold', 50000);
-        $shippingCost = ($subtotal - $discount) >= $freeShippingThreshold ? 0 : config('services.shipping.default_cost', 2500);
+        // Frais de livraison - Utiliser les paramètres de la base de données
+        $shippingSettings = \App\Models\ShippingSetting::getSettings();
+        
+        $shippingCost = 0;
+        if ($shippingSettings->is_enabled) {
+            $freeShippingThreshold = $shippingSettings->free_threshold;
+            $shippingCost = ($subtotal - $discount) >= $freeShippingThreshold ? 0 : $shippingSettings->default_cost;
+        }
         
         // Appliquer livraison gratuite si c'est le type de promotion
         if ($promotion && $promotion->type_promotion === 'livraison_gratuite') {
@@ -510,33 +520,91 @@ class CheckoutService
     }
 
     /**
-     * Initier paiement Wave
+     * Initier paiement Wave (via PayTech)
      */
     private function initiateWavePayment(Paiement $paiement, Commande $commande, array $data)
     {
-        // TODO: Implémenter l'API Wave
-        // Documentation: https://developer.wave.com
+        try {
+            $payTechService = app(PayTechService::class);
+            
+            $response = $payTechService->createPaymentRequest(
+                $commande,
+                'Wave',
+                $data['phone'] ?? $commande->client->telephone
+            );
 
-        return [
-            'success' => true,
-            'payment_url' => '#', // URL de paiement Wave
-            'message' => 'Paiement Wave en cours d\'implémentation',
-        ];
+            if (!isset($response['success']) || $response['success'] !== 1) {
+                throw new Exception($response['message'] ?? 'Erreur PayTech');
+            }
+
+            // Mettre à jour la référence de transaction
+            $paiement->update([
+                'transaction_id' => $response['token'] ?? null,
+            ]);
+
+            return [
+                'success' => true,
+                'payment_url' => $response['redirect_url'] ?? $response['redirectUrl'],
+                'token' => $response['token'] ?? null,
+            ];
+
+        } catch (\Exception $e) {
+            \Log::error('Erreur Wave PayTech', [
+                'commande_id' => $commande->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            $paiement->update([
+                'statut' => 'echoue',
+                'message_retour' => $e->getMessage()
+            ]);
+            
+            throw $e;
+        }
     }
 
     /**
-     * Initier paiement Orange Money
+     * Initier paiement Orange Money (via PayTech)
      */
     private function initiateOrangeMoneyPayment(Paiement $paiement, Commande $commande, array $data)
     {
-        // TODO: Implémenter l'API Orange Money
-        // Documentation: https://developer.orange.com/apis/orange-money-webpay/
+        try {
+            $payTechService = app(PayTechService::class);
+            
+            $response = $payTechService->createPaymentRequest(
+                $commande,
+                'Orange Money',
+                $data['phone'] ?? $commande->client->telephone
+            );
 
-        return [
-            'success' => true,
-            'payment_url' => '#', // URL de paiement Orange Money
-            'message' => 'Paiement Orange Money en cours d\'implémentation',
-        ];
+            if (!isset($response['success']) || $response['success'] !== 1) {
+                throw new Exception($response['message'] ?? 'Erreur PayTech');
+            }
+
+            // Mettre à jour la référence de transaction
+            $paiement->update([
+                'transaction_id' => $response['token'] ?? null,
+            ]);
+
+            return [
+                'success' => true,
+                'payment_url' => $response['redirect_url'] ?? $response['redirectUrl'],
+                'token' => $response['token'] ?? null,
+            ];
+
+        } catch (\Exception $e) {
+            \Log::error('Erreur Orange Money PayTech', [
+                'commande_id' => $commande->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            $paiement->update([
+                'statut' => 'echoue',
+                'message_retour' => $e->getMessage()
+            ]);
+            
+            throw $e;
+        }
     }
 
     /**

@@ -19,6 +19,7 @@ import Promotions from './pages/Promotions';
 import AvisClients from './pages/AvisClients';
 import Reports from './pages/Reports';
 import GroupMessages from './pages/GroupMessages';
+import ShippingSettings from './pages/ShippingSettings';
 import Sidebar from './components/SidebarNew';
 import './admin.css';
 
@@ -192,6 +193,15 @@ const App = () => {
                                      <AdminLayout>
                                      <Suspense fallback={<LoadingScreen />}>
                                         <Reports />
+                                     </Suspense>
+                                    </AdminLayout>
+                                 </ProtectedRoute>} />
+
+                                <Route  path="/admin/shipping-settings"  element={
+                                   <ProtectedRoute>
+                                     <AdminLayout>
+                                     <Suspense fallback={<LoadingScreen />}>
+                                        <ShippingSettings />
                                      </Suspense>
                                     </AdminLayout>
                                  </ProtectedRoute>} />

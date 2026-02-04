@@ -25,7 +25,7 @@ class AuthRequest extends FormRequest
                 'password' => 'required|string|min:8|confirmed',
                 'ville' => 'nullable|string|max:100',
                 'adresse' => 'nullable|string|max:255',
-                'accepte_conditions' => 'accepted',
+                'accepte_conditions' => 'required|accepted',
                 'accepte_whatsapp' => 'nullable|boolean',
                 'accepte_email' => 'nullable|boolean',
                 'accepte_promotions' => 'nullable|boolean'
@@ -116,6 +116,10 @@ class AuthRequest extends FormRequest
         // Nettoyer le numéro de téléphone
         if ($this->has('telephone')) {
             $telephone = preg_replace('/[^0-9+]/', '', $this->telephone);
+            // Ajouter +221 si pas présent
+            if (!str_starts_with($telephone, '+')) {
+                $telephone = '+221' . $telephone;
+            }
             $this->merge(['telephone' => $telephone]);
         }
 
@@ -132,15 +136,26 @@ class AuthRequest extends FormRequest
         if ($this->has('prenom')) {
             $this->merge(['prenom' => ucfirst(strtolower(trim($this->prenom)))]);
         }
+        
+        // Convertir accepte_conditions en boolean puis en entier pour accepted
+        if ($this->has('accepte_conditions')) {
+            $value = $this->input('accepte_conditions');
+            // Convertir en true/false boolean, puis en 1/0 pour la validation accepted
+            $this->merge(['accepte_conditions' => filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 1 : 0]);
+        }
     }
 
     protected function failedValidation(Validator $validator)
     {
+        // Récupérer le premier message d'erreur
+        $errors = $validator->errors();
+        $firstError = $errors->first();
+        
         throw new HttpResponseException(
             response()->json([
                 'success' => false,
-                'message' => 'Erreurs de validation',
-                'errors' => $validator->errors()
+                'message' => $firstError,
+                'errors' => $errors->toArray()
             ], 422)
         );
     }

@@ -17,15 +17,31 @@ class AdminAuthenticated
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Log de débogage
+        \Log::info('🔐 AdminAuthenticated Middleware', [
+            'url' => $request->url(),
+            'has_auth_header' => $request->hasHeader('Authorization'),
+            'auth_header' => $request->header('Authorization') ? substr($request->header('Authorization'), 0, 20) . '...' : null,
+        ]);
+
         // Vérifier si l'utilisateur est connecté via Sanctum
         $user = $request->user();
         
+        \Log::info('👤 User check', [
+            'user_exists' => $user !== null,
+            'user_id' => $user?->id,
+            'user_role' => $user?->role,
+            'user_statut' => $user?->statut,
+        ]);
+        
         if (!$user) {
+            \Log::warning('❌ No user found - Unauthorized');
             return $this->unauthorized($request, 'Vous devez être connecté pour accéder à cette page.');
         }
 
         // Vérifier si l'utilisateur est actif
         if ($user->statut !== 'actif') {
+            \Log::warning('❌ User not active', ['user_id' => $user->id, 'statut' => $user->statut]);
             // Révoquer les tokens de l'utilisateur
             $user->tokens()->delete();
             return $this->unauthorized($request, 'Votre compte a été suspendu. Contactez l\'administrateur.');
@@ -33,9 +49,11 @@ class AdminAuthenticated
 
         // Vérifier si l'utilisateur a le rôle admin
         if ($user->role !== 'admin') {
+            \Log::warning('❌ User is not admin', ['user_id' => $user->id, 'role' => $user->role]);
             return $this->forbidden($request, 'Accès refusé. Vous n\'avez pas les permissions administrateur.');
         }
 
+        \Log::info('✅ Admin access granted', ['user_id' => $user->id]);
         return $next($request);
     }
 

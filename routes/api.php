@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\Admin\PromotionController;
 use App\Http\Controllers\Api\Admin\AvisClientController;
 use App\Http\Controllers\Api\Admin\RapportController;
 use App\Http\Controllers\Api\Admin\MessageGroupeController;
+use App\Http\Controllers\Api\Admin\SyncController;
 use App\Http\Controllers\Api\Client\HomeController;
 
 use App\Http\Controllers\Api\Client\HomeController as ClientHomeController;
@@ -26,6 +27,7 @@ use App\Http\Controllers\Api\Client\WishlistController;
 use App\Http\Controllers\Api\Client\AuthController as ClientAuthController;
 use App\Http\Controllers\Api\Client\SearchController;
 use App\Http\Controllers\Api\Client\NewsletterController;
+use App\Http\Controllers\Api\Client\PasswordResetController;
 
 
 
@@ -82,6 +84,15 @@ Route::prefix('admin')->group(function () {
         Route::post('/categories/{category}/toggle-status', [CategoryController::class, 'toggleStatus']);
         Route::apiResource('categories', CategoryController::class);
 
+        // =================== SYNCHRONISATION CATÉGORIES-PRODUITS ===================
+        Route::prefix('sync')->name('sync.')->group(function () {
+            Route::post('/', [SyncController::class, 'sync'])->name('sync');
+            Route::get('/report', [SyncController::class, 'report'])->name('report');
+            Route::get('/categories/{category}/visibility', [SyncController::class, 'categoryVisibility'])->name('category-visibility');
+            Route::post('/categories/{category}/reset', [SyncController::class, 'resetCategory'])->name('reset-category');
+        });
+        // =================== FIN SYNCHRONISATION ===================
+
         // Produits
         Route::post('/produits/{produit}/toggle-status', [ProduitController::class, 'toggleStatus']);
         Route::post('/produits/{produit}/duplicate', [ProduitController::class, 'duplicate']);
@@ -108,7 +119,7 @@ Route::prefix('admin')->group(function () {
         
         // Routes CRUD principales (à la fin)
         Route::apiResource('commandes', CommandeController::class);
-
+ 
         // =================== FIN COMMANDES ===================
 
         // Clients
@@ -138,6 +149,12 @@ Route::prefix('admin')->group(function () {
         Route::post('/promotions/{promotion}/toggle-status', [PromotionController::class, 'toggleStatus']);
         Route::post('/promotions/{promotion}/duplicate', [PromotionController::class, 'duplicate']);
         Route::apiResource('promotions', PromotionController::class);
+
+        // Paramètres de livraison
+        Route::get('/shipping-settings', [\App\Http\Controllers\Api\Admin\ShippingSettingsController::class, 'index']);
+        Route::put('/shipping-settings', [\App\Http\Controllers\Api\Admin\ShippingSettingsController::class, 'update']);
+        Route::post('/shipping-settings/disable', [\App\Http\Controllers\Api\Admin\ShippingSettingsController::class, 'disable']);
+        Route::post('/shipping-settings/enable', [\App\Http\Controllers\Api\Admin\ShippingSettingsController::class, 'enable']);
 
         // Avis Clients
         Route::get('/avis-clients/stats', [AvisClientController::class, 'stats']);
@@ -250,6 +267,19 @@ Route::prefix('client')->group(function () {
         });
     });
 
+    // =================== RÉINITIALISATION MOT DE PASSE ===================
+    Route::prefix('password')->group(function () {
+        // Routes publiques
+        Route::post('/forgot', [PasswordResetController::class, 'sendResetLink']);
+        Route::post('/validate-token', [PasswordResetController::class, 'validateToken']);
+        Route::post('/reset', [PasswordResetController::class, 'resetPassword']);
+        
+        // Route protégée pour changer le mot de passe
+        Route::middleware(['auth:sanctum'])->group(function () {
+            Route::post('/change', [PasswordResetController::class, 'changePassword']);
+        });
+    });
+
     // =================== COMPTE CLIENT (DASHBOARD) ===================
     Route::prefix('account')->middleware(['auth:sanctum'])->group(function () {
         Route::get('/orders', [\App\Http\Controllers\Api\Client\AccountController::class, 'getOrders']);
@@ -273,15 +303,15 @@ Route::prefix('client')->group(function () {
     // Webhook Stripe
     Route::post('/stripe/webhook', [\App\Http\Controllers\Api\Client\StripeWebhookController::class, 'handle'])->name('stripe.webhook');
     
-    // =================== NEXPAY (Wave & Orange Money) ===================
-    Route::prefix('nexpay')->group(function () {
-        Route::post('/initiate', [\App\Http\Controllers\Api\Client\NexPayController::class, 'initiate']);
-        Route::get('/status/{sessionId}', [\App\Http\Controllers\Api\Client\NexPayController::class, 'checkStatus']);
-        Route::get('/callback', [\App\Http\Controllers\Api\Client\NexPayController::class, 'callback']);
+    // =================== PAYTECH (Wave & Orange Money) ===================
+    Route::prefix('paytech')->group(function () {
+        Route::post('/initiate', [\App\Http\Controllers\Api\Client\PayTechController::class, 'initiate']);
+        Route::get('/status/{token}', [\App\Http\Controllers\Api\Client\PayTechController::class, 'checkStatus']);
+        Route::get('/callback', [\App\Http\Controllers\Api\Client\PayTechController::class, 'callback']);
     });
     
-    // Webhook NexPay (hors groupe client pour éviter middleware)
-    Route::post('/webhook/nexpay', [\App\Http\Controllers\Api\Client\NexPayController::class, 'webhook']);
+    // Webhook PayTech (hors groupe client pour éviter middleware)
+    Route::post('/webhook/paytech', [\App\Http\Controllers\Api\Client\PayTechController::class, 'webhook']);
     
     // =================== NEWSLETTER ===================
     Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe']);
