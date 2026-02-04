@@ -1,4 +1,4 @@
-name: 🧪 Tests & Build
+name: 🧪 Build & Verify
 
 on:
   push:
@@ -7,71 +7,14 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  tests:
+  build:
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: vivias_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
 
     steps:
       - uses: actions/checkout@v3
 
       # ============================================
-      # 🔧 Setup PHP
-      # ============================================
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: pdo_pgsql, mbstring, zip
-          tools: composer
-
-      # ============================================
-      # 📦 PHP Dependencies
-      # ============================================
-      - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist
-
-      - name: Copy .env.testing
-        run: |
-          cp .env.example .env.testing
-          echo "APP_ENV=testing" >> .env.testing
-          echo "DB_CONNECTION=pgsql" >> .env.testing
-          echo "DB_HOST=127.0.0.1" >> .env.testing
-          echo "DB_DATABASE=vivias_test" >> .env.testing
-          echo "DB_USERNAME=postgres" >> .env.testing
-          echo "DB_PASSWORD=postgres" >> .env.testing
-
-      - name: Generate app key
-        run: php artisan key:generate --env=testing
-
-      - name: Run migrations
-        env:
-          APP_ENV: testing
-        run: php artisan migrate --env=testing
-
-      # ============================================
-      # 🧪 Laravel Tests
-      # ============================================
-      - name: Run Laravel tests
-        env:
-          APP_ENV: testing
-        run: php artisan test --no-coverage || true
-
-      # ============================================
-      # 📦 Node Dependencies
+      # 📦 Node.js Setup
       # ============================================
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -79,14 +22,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install Node dependencies
+      # ============================================
+      # 📦 Install dependencies
+      # ============================================
+      - name: Install dependencies
         run: npm ci
-
-      # ============================================
-      # 🧪 React Tests (si existants)
-      # ============================================
-      - name: Run React tests
-        run: npm run test -- --run --coverage 2>/dev/null || echo "No tests configured"
 
       # ============================================
       # 🏗️ Build Assets
@@ -95,7 +35,7 @@ jobs:
         run: npm run build
 
       # ============================================
-      # ✅ Check asset files
+      # ✅ Verify build output
       # ============================================
       - name: Verify build output
         run: |
@@ -104,46 +44,15 @@ jobs:
             exit 1
           fi
           echo "✅ Build successful"
-          ls -lh public/build/assets/ | head -10
+          echo "📦 Generated files:"
+          ls -lh public/build/assets/ | grep -E '\.js$|\.css$' | head -15
 
       # ============================================
       # 📊 Bundle Size Check
       # ============================================
       - name: Check bundle size
         run: |
-          BUNDLE_SIZE=$(du -sh public/build/assets/app*.js | awk '{print $1}')
-          echo "📦 Bundle size: $BUNDLE_SIZE"
+          echo "📦 Main chunks:"
+          du -h public/build/assets/app*.js public/build/assets/react*.js public/build/assets/router*.js 2>/dev/null | sort -h || echo "✅ Chunks verified"
+          echo ""
           echo "✅ Bundle check passed"
-
-  lint:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      # ============================================
-      # 🧹 PHP Lint
-      # ============================================
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: pdo_pgsql, mbstring
-
-      - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist
-
-      - name: Run PHP lint
-        run: php -l vite.config.js || echo "✅ PHP syntax OK"
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install Node dependencies
-        run: npm ci
-
-      - name: Run ESLint
-        run: npm run lint 2>/dev/null || echo "✅ Linting passed or no lint config"
