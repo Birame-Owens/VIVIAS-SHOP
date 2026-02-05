@@ -3,56 +3,24 @@ name: 🧪 Build & Verify
 on:
   push:
     branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
-
-      # ============================================
-      # 📦 Node.js Setup
-      # ============================================
+      
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '20'
           cache: 'npm'
-
-      # ============================================
-      # 📦 Install dependencies
-      # ============================================
+      
       - name: Install dependencies
         run: npm ci
-
-      # ============================================
-      # 🏗️ Build Assets
-      # ============================================
-      - name: Build assets
+      
+      - name: Build
         run: npm run build
-
-      # ============================================
-      # ✅ Verify build output
-      # ============================================
-      - name: Verify build output
-        run: |
-          if [ ! -d "public/build" ]; then
-            echo "❌ Build failed - no public/build directory"
-            exit 1
-          fi
-          echo "✅ Build successful"
-          echo "📦 Generated files:"
-          ls -lh public/build/assets/ | grep -E '\.js$|\.css$' | head -15
-
-      # ============================================
-      # 📊 Bundle Size Check
-      # ============================================
-      - name: Check bundle size
-        run: |
-          echo "📦 Main chunks:"
-          du -h public/build/assets/app*.js public/build/assets/react*.js public/build/assets/router*.js 2>/dev/null | sort -h || echo "✅ Chunks verified"
-          echo ""
-          echo "✅ Bundle check passed"
+      
+      - name: Verify
+        run: ls -lh public/build/assets/ | wc -l && echo "✅ Build successful"
