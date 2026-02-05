@@ -4,6 +4,8 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import api from "./utils/api";
+import SkeletonLoader from "./components/SkeletonLoader";
+import { useRouteLoading } from "./hooks/useRouteLoading";
 import "./client.css";
 
 // ⚡ IMPORTANT: Retirer tous les logs en production
@@ -29,8 +31,8 @@ const PaymentSuccess = lazy(() => import(/* webpackChunkName: "page-payment-succ
 const ForgotPasswordPage = lazy(() => import(/* webpackChunkName: "page-forgot" */ "./pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import(/* webpackChunkName: "page-reset" */ "./pages/ResetPasswordPage"));
 
-// ⚡ Loading minimal - Ne pas renderer de contenu (invisible)
-const PageLoader = () => <div />;
+// ⚡ Loading avec Skeleton - Plus esthétique
+const PageLoader = () => <SkeletonLoader isLoading={true} />;
 
 // Context global
 export const AppContext = createContext({
