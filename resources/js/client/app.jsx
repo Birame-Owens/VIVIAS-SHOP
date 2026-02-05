@@ -32,8 +32,9 @@ const PaymentSuccess = lazy(() => import(/* webpackChunkName: "page-payment-succ
 const ForgotPasswordPage = lazy(() => import(/* webpackChunkName: "page-forgot" */ "./pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import(/* webpackChunkName: "page-reset" */ "./pages/ResetPasswordPage"));
 
-// ⚡ Loading avec Skeleton - Plus esthétique
-const PageLoader = () => <SkeletonLoader isLoading={true} />;
+// ⚡ Loading - Utilise le PageLoadingOverlay globalement
+// Le Suspense fallback n'est pas utilisé car PageLoadingOverlay gère le loading
+const PageLoader = () => null;
 
 // Routes component avec loading overlay
 const RoutesWithLoading = () => {
