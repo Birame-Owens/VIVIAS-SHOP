@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { AuthProvider } from "./contexts/AuthContext";
 import api from "./utils/api";
 import SkeletonLoader from "./components/SkeletonLoader";
+import PageLoadingOverlay from "./components/PageLoadingOverlay";
 import { useRouteLoading } from "./hooks/useRouteLoading";
 import "./client.css";
 
@@ -33,6 +34,36 @@ const ResetPasswordPage = lazy(() => import(/* webpackChunkName: "page-reset" */
 
 // ⚡ Loading avec Skeleton - Plus esthétique
 const PageLoader = () => <SkeletonLoader isLoading={true} />;
+
+// Routes component avec loading overlay
+const RoutesWithLoading = () => {
+    const { isLoading } = useRouteLoading();
+
+    return (
+        <>
+            <PageLoadingOverlay isLoading={isLoading} />
+            <Suspense fallback={<PageLoader />}>
+                <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/shop" element={<ShopPage />} />
+                    <Route path="/products/:slug" element={<ProductDetailPage />} />
+                    <Route path="/categories/:slug" element={<CategoryPage />} />
+                    <Route path="/cart" element={<CartPage />} />
+                    <Route path="/wishlist" element={<WishlistPage />} />
+                    <Route path="/checkout" element={<CheckoutPage />} />
+                    <Route path="/checkout/success" element={<PaymentSuccess />} />
+                    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                    <Route path="/reset-password" element={<ResetPasswordPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/account" element={<AccountPage />} />
+                    <Route path="/orders" element={<OrdersPage />} />
+                    <Route path="/orders/:id" element={<OrderDetailPage />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </Suspense>
+        </>
+    );
+};
 
 // Context global
 export const AppContext = createContext({
@@ -129,25 +160,7 @@ const AppClient = () => {
         <AuthProvider>
             <AppContext.Provider value={{ config, prefetchProduct }}>
                 <Router>
-                    <Suspense fallback={<PageLoader />}>
-                        <Routes>
-                            <Route path="/" element={<HomePage />} />
-                            <Route path="/shop" element={<ShopPage />} />
-                            <Route path="/products/:slug" element={<ProductDetailPage />} />
-                            <Route path="/categories/:slug" element={<CategoryPage />} />
-                            <Route path="/cart" element={<CartPage />} />
-                            <Route path="/wishlist" element={<WishlistPage />} />
-                            <Route path="/checkout" element={<CheckoutPage />} />
-                            <Route path="/checkout/success" element={<PaymentSuccess />} />
-                            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                            <Route path="/reset-password" element={<ResetPasswordPage />} />
-                            <Route path="/profile" element={<ProfilePage />} />
-                            <Route path="/account" element={<AccountPage />} />
-                            <Route path="/orders" element={<OrdersPage />} />
-                            <Route path="/orders/:id" element={<OrderDetailPage />} />
-                            <Route path="*" element={<Navigate to="/" replace />} />
-                        </Routes>
-                    </Suspense>
+                    <RoutesWithLoading />
                 </Router>
             </AppContext.Provider>
         </AuthProvider>
