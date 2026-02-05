@@ -13,14 +13,15 @@ import Dashboard from './pages/Dashboard';
 import Categories from './pages/Categories';
 import Products from './pages/Products';
 import Paiements from './pages/Paiements';
-import Commands from './pages/Commands'; // ← AJOUTER CETTE LIGNE
-import Clients from './pages/Clients'; // ou le bon chemin
+import Commands from './pages/Commands';
+import Clients from './pages/Clients';
 import Promotions from './pages/Promotions';
 import AvisClients from './pages/AvisClients';
 import Reports from './pages/Reports';
 import GroupMessages from './pages/GroupMessages';
 import ShippingSettings from './pages/ShippingSettings';
 import Sidebar from './components/SidebarNew';
+import AdminSkeletonLoader from './components/AdminSkeletonLoader';
 import './admin.css';
 
 // Layout principal pour les pages admin
@@ -39,21 +40,8 @@ const AdminLayout = ({ children }) => {
     );
 };
 
-// Composant de chargement
-const LoadingScreen = () => (
-    <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center">
-        <div className="text-center">
-            <div className="w-16 h-16 border-2 border-black rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-                <span className="text-2xl font-bold">V</span>
-            </div>
-            <h1 className="text-2xl font-light uppercase tracking-[0.2em] mb-2">VIVIAS SHOP</h1>
-            <p className="text-xs text-neutral-400 uppercase tracking-widest">Administration</p>
-            <div className="mt-6">
-                <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto"></div>
-            </div>
-        </div>
-    </div>
-);
+// Composant de chargement - Skeleton pro
+const LoadingScreen = () => <AdminSkeletonLoader />;
 
 // Composant d'erreur
 class ErrorBoundary extends React.Component {
