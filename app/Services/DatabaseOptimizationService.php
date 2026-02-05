@@ -113,13 +113,44 @@ class DatabaseOptimizationService
     }
 
     /**
-     * Analyser les slowqueries
+     * Analyser les slow queries en PostgreSQL
+     * Utilise l'extension pg_stat_statements (si disponible)
      */
     public static function analyzeSlowQueries()
     {
-        return DB::table('mysql.slow_log')
-            ->orderBy('start_time', 'desc')
-            ->limit(10)
-            ->get();
+        try {
+            // Vérifier si l'extension pg_stat_statements est chargée
+            $extensionExists = DB::select("SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'");
+            
+            if (empty($extensionExists)) {
+                return [
+                    'error' => 'Extension pg_stat_statements non disponible',
+                    'solution' => 'Exécuter en tant que superuser: CREATE EXTENSION IF NOT EXISTS pg_stat_statements;'
+                ];
+            }
+            
+            // Récupérer les 10 requêtes les plus lentes
+            return DB::select("
+                SELECT 
+                    query,
+                    calls as nb_appels,
+                    ROUND(total_exec_time::numeric, 2) as temps_total_ms,
+                    ROUND(mean_exec_time::numeric, 2) as temps_moyen_ms,
+                    ROUND(max_exec_time::numeric, 2) as temps_max_ms,
+                    rows,
+                    100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0) as cache_hit_ratio
+                FROM pg_stat_statements
+                WHERE query NOT LIKE '%pg_stat_statements%'
+                ORDER BY mean_exec_time DESC
+                LIMIT 10
+            ");
+        } catch (\Exception $e) {
+            // Fallback : retourner les logs Laravel des queries lentes
+            return [
+                'error' => 'Impossible d\'accéder à pg_stat_statements',
+                'message' => $e->getMessage(),
+                'fallback' => 'Consultez les logs de performance : storage/logs/performance-*.log'
+            ];
+        }
     }
 }
