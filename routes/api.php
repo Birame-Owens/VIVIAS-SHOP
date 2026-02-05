@@ -29,6 +29,9 @@ use App\Http\Controllers\Api\Client\SearchController;
 use App\Http\Controllers\Api\Client\NewsletterController;
 use App\Http\Controllers\Api\Client\PasswordResetController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\EmailStatsController;
+use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\JobStatsController;
 
 
 // =================== ROUTES PUBLIQUES ===================
@@ -37,6 +40,15 @@ use App\Http\Controllers\HealthController;
 Route::prefix('health')->name('health.')->group(function () {
     Route::get('/', [HealthController::class, 'check'])->name('check');
     Route::get('/stats', [HealthController::class, 'stats'])->name('stats');
+});
+
+// Webhooks (publics, sans authentification)
+Route::prefix('webhooks')->name('webhooks.')->group(function () {
+    Route::get('/test', [WebhookController::class, 'test'])->name('test');
+    Route::post('/whatsapp', [WebhookController::class, 'whatsappWebhook'])->name('whatsapp');
+    Route::post('/email-bounce', [WebhookController::class, 'emailBounceWebhook'])->name('email-bounce');
+    Route::get('/email-open/{token}', [WebhookController::class, 'emailOpenWebhook'])->name('email-open');
+    Route::get('/email-click/{token}', [WebhookController::class, 'emailClickWebhook'])->name('email-click');
 });
 
 Route::get('/user', function (Request $request) {
@@ -55,6 +67,20 @@ Route::prefix('admin')->group(function () {
         Route::get('/check', [AuthController::class, 'check']);
         Route::post('/refresh', [AuthController::class, 'refresh']);
         
+        // =================== EMAIL & MESSAGE STATS ===================
+        Route::prefix('email-stats')->name('email-stats.')->group(function () {
+            Route::get('/', [EmailStatsController::class, 'dashboard'])->name('dashboard');
+            Route::get('/queue', [EmailStatsController::class, 'queueStats'])->name('queue');
+            Route::get('/tracker', [EmailStatsController::class, 'trackerStats'])->name('tracker');
+            Route::get('/whatsapp', [EmailStatsController::class, 'whatsappStats'])->name('whatsapp');
+            Route::get('/pending', [EmailStatsController::class, 'pendingEmails'])->name('pending');
+            Route::get('/failed', [EmailStatsController::class, 'failedEmails'])->name('failed');
+            Route::get('/job/{id}', [EmailStatsController::class, 'jobDetails'])->name('job-details');
+            Route::post('/process', [EmailStatsController::class, 'processManually'])->name('process');
+            Route::post('/retry-failed', [EmailStatsController::class, 'retryFailed'])->name('retry-failed');
+        });
+        // =================== FIN EMAIL & MESSAGE STATS ===================
+        
         // =================== MONITORING & LOGS ===================
         Route::prefix('logs')->name('logs.')->group(function () {
             Route::get('/performance', [\App\Http\Controllers\LogsController::class, 'performance'])->name('performance');
@@ -65,6 +91,16 @@ Route::prefix('admin')->group(function () {
             Route::get('/slow-queries', [\App\Http\Controllers\LogsController::class, 'slowQueries'])->name('slow-queries');
         });
         // =================== FIN MONITORING & LOGS ===================
+        
+        // =================== JOBS & EMAIL STATS ===================
+        Route::prefix('jobs')->name('jobs.')->group(function () {
+            Route::get('/stats', [\App\Http\Controllers\JobStatsController::class, 'dashboard'])->name('dashboard');
+            Route::get('/email-stats', [\App\Http\Controllers\JobStatsController::class, 'emailStats'])->name('email-stats');
+            Route::get('/whatsapp-stats', [\App\Http\Controllers\JobStatsController::class, 'whatsappStats'])->name('whatsapp-stats');
+            Route::get('/tracker-stats', [\App\Http\Controllers\JobStatsController::class, 'trackerStats'])->name('tracker-stats');
+            Route::get('/failed-emails', [\App\Http\Controllers\JobStatsController::class, 'failedEmails'])->name('failed-emails');
+        });
+        // =================== FIN JOBS & EMAIL STATS ===================
 
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index']);

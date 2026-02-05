@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Middleware CORS
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
+            \App\Http\Middleware\EnsureJsonResponse::class,
         ]);
         
         // Ajouter les middleware de session pour les routes API

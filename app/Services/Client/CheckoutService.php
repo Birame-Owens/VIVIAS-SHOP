@@ -62,7 +62,7 @@ class CheckoutService
      */
     private function getOrCreateClient(array $customerData)
     {
-        // Si l'utilisateur est connecté
+        // Si l'utilisateur EST CONNECTÉ → Pas besoin de valider les doublons
         if (Auth::check()) {
             $user = Auth::user();
 
@@ -93,8 +93,9 @@ class CheckoutService
             ]);
         }
 
-        // ===== CHECKOUT INVITÉ AVEC CRÉATION DE COMPTE AUTO =====
-        
+        // ===== CHECKOUT INVITÉ - VALIDER UNIQUEMENT POUR LES GUESTS =====
+        // Valider l'unicité AVANT de créer un nouveau compte
+        $this->validateUniqueFields($customerData);
         // 1. Vérifier si un COMPTE User existe avec cet email
         $existingUser = \App\Models\User::where('email', $customerData['email'])->first();
         
@@ -472,13 +473,14 @@ class CheckoutService
                 ];
             }
 
+            $frontendUrl = env('FRONTEND_URL', 'http://192.168.1.11:5173');
             $session = \Stripe\Checkout\Session::create([
                 'payment_method_types' => ['card'],
                 'line_items' => $lineItems,
                 'mode' => 'payment',
-                'success_url' => config('services.frontend_url', 'http://192.168.1.10:5173') .
+                'success_url' => $frontendUrl .
                     "/checkout/success?session_id={CHECKOUT_SESSION_ID}&order={$commande->numero_commande}",
-                'cancel_url' => config('services.frontend_url', 'http://192.168.1.10:5173') . "/checkout/cancel?order={$commande->numero_commande}",
+                'cancel_url' => $frontendUrl . "/checkout/cancel?order={$commande->numero_commande}",
                 'client_reference_id' => $commande->numero_commande,
                 'customer_email' => $commande->client->email,
                 'metadata' => [
@@ -743,7 +745,51 @@ class CheckoutService
             . "💰 Montant: *{$montant} FCFA*\n"
             . "💳 Paiement: {$paiement->methode_paiement}\n"
             . "📍 Livraison: {$commande->ville_livraison}\n\n"
-            . "🕐 " . now()->format('d/m/Y à H:i') . "\n\n"
-            . "Voir détails: " . config('app.url') . "/admin/commandes/{$commande->id}";
+            . "🕐 " . now()->format('d/m/Y à H:i') . "\n\n";
+    }
+
+    /**
+     * Valider l'unicité des champs (email, téléphone)
+     * Avant la création du client pour éviter les erreurs SQL
+     */
+    private function validateUniqueFields(array $customerData)
+    {
+        // Normaliser le téléphone
+        $phone = $customerData['telephone'] ?? null;
+        if ($phone) {
+            $phone = preg_replace('/[^0-9+]/', '', $phone);
+            if (!str_starts_with($phone, '+')) {
+                $phone = '+221' . $phone;
+            }
+        }
+
+        // Vérifier l'email
+        if (isset($customerData['email'])) {
+            $existingUser = \App\Models\User::where('email', strtolower($customerData['email']))->first();
+            if ($existingUser) {
+                throw new Exception(
+                    "Un compte existe déjà avec l'email '{$customerData['email']}'. "
+                    . "Veuillez vous connecter ou utiliser un autre email."
+                );
+            }
+
+            $existingClient = Client::where('email', strtolower($customerData['email']))
+                ->whereNull('user_id')
+                ->first();
+            if ($existingClient) {
+                // C'est un ancien guest, c'est OK - il sera créé un compte
+            }
+        }
+
+        // Vérifier le téléphone
+        if ($phone) {
+            $existingClient = Client::where('telephone', $phone)->first();
+            if ($existingClient) {
+                throw new Exception(
+                    "Le numéro de téléphone '{$phone}' est déjà associé à un autre compte. "
+                    . "Veuillez utiliser un autre numéro ou vous connecter à votre compte existant."
+                );
+            }
+        }
     }
 }

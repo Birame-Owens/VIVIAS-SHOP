@@ -24,31 +24,33 @@ class CheckoutController extends Controller
      */
     public function createOrder(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'customer.nom' => 'required|string|max:100',
-            'customer.prenom' => 'required|string|max:100',
-            'customer.telephone' => 'required|string|max:20',
-            'customer.email' => 'required|email|max:255',
-            'customer.adresse_livraison' => 'required|string',
-            'customer.ville' => 'nullable|string|max:100',
-            'customer.code_postal' => 'nullable|string|max:10',
-            'customer.pays' => 'nullable|string|max:100',
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|integer|exists:produits,id',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.options' => 'nullable|array',
-            'coupon_code' => 'nullable|string',
-            'notes' => 'nullable|string|max:500',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
         try {
+            // ===== VALIDATION =====
+            $validator = Validator::make($request->all(), [
+                'customer.nom' => 'required|string|max:100',
+                'customer.prenom' => 'required|string|max:100',
+                'customer.telephone' => 'required|string|max:20',
+                'customer.email' => 'required|email|max:255',
+                'customer.adresse_livraison' => 'required|string',
+                'customer.ville' => 'nullable|string|max:100',
+                'customer.code_postal' => 'nullable|string|max:10',
+                'customer.pays' => 'nullable|string|max:100',
+                'items' => 'required|array|min:1',
+                'items.*.product_id' => 'required|integer|exists:produits,id',
+                'items.*.quantity' => 'required|integer|min:1',
+                'items.*.options' => 'nullable|array',
+                'coupon_code' => 'nullable|string',
+                'notes' => 'nullable|string|max:500',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first(),
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
             \Log::info('🛒 CheckoutController@createOrder - Début', [
                 'customer' => $request->input('customer'),
                 'items_count' => count($request->input('items', [])),
@@ -95,12 +97,16 @@ class CheckoutController extends Controller
             $isBusinessError = str_contains($e->getMessage(), 'Un compte existe déjà') 
                             || str_contains($e->getMessage(), 'email') 
                             || str_contains($e->getMessage(), 'stock')
-                            || str_contains($e->getMessage(), 'connecter');
+                            || str_contains($e->getMessage(), 'stock')
+                            || str_contains($e->getMessage(), 'téléphone')
+                            || str_contains($e->getMessage(), 'connecter')
+                            || str_contains($e->getMessage(), 'existe déjà');
 
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
-                'type' => $isBusinessError ? 'validation' : 'server_error'
+                'type' => $isBusinessError ? 'validation' : 'server_error',
+                'status' => $isBusinessError ? 400 : 500
             ], $isBusinessError ? 400 : 500);
         }
     }
