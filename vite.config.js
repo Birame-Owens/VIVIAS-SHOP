@@ -2,8 +2,23 @@ import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import react from '@vitejs/plugin-react';
 
+// Plugin personnalisé pour résoudre les imports es-toolkit vers lodash-es
+const esToolkitResolverPlugin = {
+    name: 'es-toolkit-resolver',
+    resolveId(id) {
+        if (id.startsWith('es-toolkit/compat/')) {
+            const func = id.replace('es-toolkit/compat/', '');
+            return { id: `lodash-es/${func}` };
+        }
+        if (id === 'es-toolkit') {
+            return { id: 'lodash-es' };
+        }
+    },
+};
+
 export default defineConfig({
     plugins: [
+        esToolkitResolverPlugin,
         laravel({
             input: [
                 // Partie Admin (SÉPARÉE)
@@ -154,21 +169,9 @@ export default defineConfig({
             'lucide-react',
             'zustand',
             'react-hook-form',
-            'recharts', // Include recharts to pre-bundle with aliases
+            'recharts',
+            'lodash-es',
         ],
-        esbuildOptions: {
-            alias: {
-                'es-toolkit': 'lodash-es',
-                'es-toolkit/compat/get': 'lodash-es/get',
-                'es-toolkit/compat/uniqBy': 'lodash-es/uniqBy',
-                'es-toolkit/compat/sortBy': 'lodash-es/sortBy',
-                'es-toolkit/compat/last': 'lodash-es/last',
-                'es-toolkit/compat/range': 'lodash-es/range',
-                'es-toolkit/compat/omit': 'lodash-es/omit',
-                'es-toolkit/compat/maxBy': 'lodash-es/maxBy',
-                'es-toolkit/compat/sumBy': 'lodash-es/sumBy',
-            },
-        },
         // Exclure les heavy deps (lazy load)
         exclude: [
             '@stripe/react-stripe-js',
