@@ -14,16 +14,20 @@ class CheckAdminRole
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Vérifier si l'utilisateur est connecté
+        // Vérifier si l'utilisateur est connecté (fonctionne avec session ET Bearer token)
         if (!Auth::check()) {
             return $this->unauthorized($request, 'Vous devez être connecté pour accéder à cette ressource.');
         }
 
         $user = Auth::user();
+        
+        // Vérifier que l'utilisateur existe
+        if (!$user) {
+            return $this->unauthorized($request, 'Utilisateur non trouvé.');
+        }
 
-        // Vérifier si l'utilisateur est actif
-        if ($user->statut !== 'actif') {
-            Auth::logout();
+        // Vérifier si l'utilisateur est actif (sauf si la colonne n'existe pas)
+        if (method_exists($user, 'getAttribute') && isset($user->statut) && $user->statut !== 'actif') {
             return $this->unauthorized($request, 'Votre compte a été suspendu. Contactez l\'administrateur.');
         }
 
