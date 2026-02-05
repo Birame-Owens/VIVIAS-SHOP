@@ -25,9 +25,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Session\Middleware\StartSession::class,
         ]);
         
+        // Rate limiting et Monitoring
         $middleware->alias([
             'admin.auth' => \App\Http\Middleware\AdminAuthenticated::class,
             'admin.role' => \App\Http\Middleware\CheckAdminRole::class,
+            'throttle.api' => \App\Http\Middleware\RateLimitMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

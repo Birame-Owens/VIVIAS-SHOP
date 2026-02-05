@@ -28,9 +28,16 @@ use App\Http\Controllers\Api\Client\AuthController as ClientAuthController;
 use App\Http\Controllers\Api\Client\SearchController;
 use App\Http\Controllers\Api\Client\NewsletterController;
 use App\Http\Controllers\Api\Client\PasswordResetController;
+use App\Http\Controllers\HealthController;
 
 
+// =================== ROUTES PUBLIQUES ===================
 
+// Health check (publique, sans authentification)
+Route::prefix('health')->name('health.')->group(function () {
+    Route::get('/', [HealthController::class, 'check'])->name('check');
+    Route::get('/stats', [HealthController::class, 'stats'])->name('stats');
+});
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -38,15 +45,26 @@ Route::get('/user', function (Request $request) {
 
 // Routes admin
 Route::prefix('admin')->group(function () {
-    // Authentification (sans middleware)
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/logout', [AuthController::class, 'logout']);
+    // Authentification avec RATE LIMITING (5 tentatives par minute)
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle.api:5,1');
+    Route::post('/logout', [AuthController::class, 'logout'])->middleware('throttle.api:10,1');
 
     // Routes protégées
     Route::middleware(['auth:sanctum', 'admin.auth'])->group(function () {
         Route::get('/user', [AuthController::class, 'user']);
         Route::get('/check', [AuthController::class, 'check']);
         Route::post('/refresh', [AuthController::class, 'refresh']);
+        
+        // =================== MONITORING & LOGS ===================
+        Route::prefix('logs')->name('logs.')->group(function () {
+            Route::get('/performance', [\App\Http\Controllers\LogsController::class, 'performance'])->name('performance');
+            Route::get('/errors', [\App\Http\Controllers\LogsController::class, 'errors'])->name('errors');
+            Route::get('/api', [\App\Http\Controllers\LogsController::class, 'api'])->name('api');
+            Route::get('/actions', [\App\Http\Controllers\LogsController::class, 'actions'])->name('actions');
+            Route::get('/database', [\App\Http\Controllers\LogsController::class, 'database'])->name('database');
+            Route::get('/slow-queries', [\App\Http\Controllers\LogsController::class, 'slowQueries'])->name('slow-queries');
+        });
+        // =================== FIN MONITORING & LOGS ===================
 
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index']);
