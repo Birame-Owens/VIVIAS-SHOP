@@ -55,8 +55,131 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// Routes admin
+// =================== DEBUG ROUTES ===================
 Route::prefix('admin')->group(function () {
+    // Route de debug SANS authentification
+    Route::get('/debug/auth', function (Request $request) {
+        $authHeader = $request->header('Authorization');
+        $user = Auth::guard('api')->user();
+        
+        return response()->json([
+            'debug' => [
+                'authorization_header' => $authHeader ? 'Présent' : 'Absent',
+                'auth_header_value' => substr($authHeader, 0, 30) . '...' ?? null,
+                'auth_check' => Auth::check(),
+                'auth_user' => $user ? $user->email : 'null',
+                'guard_api_user' => Auth::guard('api')->user()?->email ?? 'null',
+                'sanctum_check' => Auth::guard('sanctum')->user()?->email ?? 'null',
+            ],
+            'request_info' => [
+                'method' => $request->method(),
+                'path' => $request->path(),
+                'ip' => $request->ip(),
+            ]
+        ]);
+    });
+
+    // Route de debug SANS authentification - CONFIG
+    Route::get('/debug/config', function (Request $request) {
+        return response()->json([
+            'app_url' => config('app.url'),
+            'frontend_url' => config('app.frontend_url'),
+            'sanctum_stateful' => config('sanctum.stateful'),
+            'sanctum_stateful_raw' => env('SANCTUM_STATEFUL_DOMAINS'),
+            'sanctum_guard' => config('sanctum.guard'),
+            'auth_defaults_guard' => config('auth.defaults.guard'),
+            'auth_guards_api' => config('auth.guards.api'),
+            'auth_guards_sanctum' => config('auth.guards.sanctum'),
+        ]);
+    });
+
+    // Route de debug AVEC Sanctum pour voir si le middleware fonctionne
+    Route::get('/debug/sanctum-test', function (Request $request) {
+        $authHeader = $request->header('Authorization');
+        
+        // Essayer tous les guards
+        $webUser = Auth::guard('web')->user();
+        $sanctumUser = Auth::guard('sanctum')->user();
+        $requestUser = $request->user();
+        $defaultUser = Auth::user();
+        
+        return response()->json([
+            'authorization_header' => $authHeader ? substr($authHeader, 0, 50) . '...' : 'Absent',
+            'guards' => [
+                'web' => $webUser ? $webUser->email : 'null',
+                'sanctum' => $sanctumUser ? $sanctumUser->email : 'null',
+                'request->user()' => $requestUser ? $requestUser->email : 'null',
+                'Auth::user()' => $defaultUser ? $defaultUser->email : 'null',
+            ]
+        ]);
+    })->middleware('auth:sanctum');
+
+    // Route de debug pour vérifier les tokens en DB
+    Route::get('/debug/tokens', function (Request $request) {
+        $tokens = DB::table('personal_access_tokens')->latest()->limit(5)->get();
+        return response()->json([
+            'count' => count($tokens),
+            'tokens' => $tokens->map(fn($t) => [
+                'id' => $t->id,
+                'user_id' => $t->tokenable_id,
+                'name' => $t->name,
+                'hash_last_50' => substr($t->token, -50),
+                'created_at' => $t->created_at,
+            ])
+        ]);
+    });
+
+    // Route de debug pour tester Bearer token validation
+    Route::get('/debug/bearer-test', function (Request $request) {
+        $authHeader = $request->header('Authorization');
+        
+        // Extractez le token du header
+        $bearerToken = null;
+        if ($authHeader && str_starts_with($authHeader, 'Bearer ')) {
+            $bearerToken = substr($authHeader, 7);
+        }
+        
+        // Cherchez le hash du token en DB
+        $tokenFromDb = null;
+        if ($bearerToken) {
+            $tokenHash = hash('sha256', $bearerToken);
+            $tokenFromDb = DB::table('personal_access_tokens')
+                ->where('token', $tokenHash)
+                ->first();
+        }
+        
+        return response()->json([
+            'authorization_header' => $authHeader ? 'Present' : 'Absent',
+            'bearer_token_extracted' => $bearerToken ? 'Yes' : 'No',
+            'bearer_token_length' => $bearerToken ? strlen($bearerToken) : 0,
+            'token_hash_found' => $tokenFromDb ? 'Yes' : 'No',
+            'token_details' => $tokenFromDb ? [
+                'id' => $tokenFromDb->id,
+                'user_id' => $tokenFromDb->tokenable_id,
+                'name' => $tokenFromDb->name,
+                'created_at' => $tokenFromDb->created_at,
+                'expires_at' => $tokenFromDb->expires_at,
+            ] : null,
+            'sanctum_test' => [
+                'request_user' => $request->user() ? $request->user()->email : 'null',
+                'auth_user' => \Auth::user() ? \Auth::user()->email : 'null',
+            ]
+        ]);
+    });
+
+    // Route TEST SANCTUM - protégée par SEULEMENT auth:sanctum (pas admin.auth)
+    Route::get('/test/sanctum-only', function (Request $request) {
+        $user = $request->user();
+        return response()->json([
+            'status' => 'authenticated',
+            'user' => [
+                'id' => $user->id,
+                'email' => $user->email,
+                'role' => $user->role,
+            ]
+        ]);
+    })->middleware('auth:sanctum');
+    
     // Authentification avec RATE LIMITING (5 tentatives par minute)
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle.api:5,1');
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('throttle.api:10,1');

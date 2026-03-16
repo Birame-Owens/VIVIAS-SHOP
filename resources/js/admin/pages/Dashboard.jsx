@@ -64,8 +64,13 @@ const Dashboard = () => {
     };
 
     useEffect(() => {
-        loadData();
-    }, []);
+        // ✅ Ne charger que si on a un token
+        if (token) {
+            loadData();
+        } else {
+            console.log('⏳ En attente du token...');
+        }
+    }, [token]);
 
     const handleRefresh = () => {
         loadData();

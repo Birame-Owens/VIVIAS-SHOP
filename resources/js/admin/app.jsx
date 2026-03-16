@@ -20,6 +20,7 @@ import AvisClients from './pages/AvisClients';
 import Reports from './pages/Reports';
 import GroupMessages from './pages/GroupMessages';
 import ShippingSettings from './pages/ShippingSettings';
+import DebugAuth from './pages/DebugAuth';
 import Sidebar from './components/SidebarNew';
 import AdminSkeletonLoader from './components/AdminSkeletonLoader';
 import './admin.css';
@@ -199,6 +200,16 @@ const App = () => {
                                      <AdminLayout>
                                      <Suspense fallback={<LoadingScreen />}>
                                         <GroupMessages />
+                                     </Suspense>
+                                    </AdminLayout>
+                                 </ProtectedRoute>} />
+
+                                {/* ROUTE DE DEBUG TEMPORAIRE */}
+                                <Route  path="/admin/debug-auth"  element={
+                                   <ProtectedRoute>
+                                     <AdminLayout>
+                                     <Suspense fallback={<LoadingScreen />}>
+                                        <DebugAuth />
                                      </Suspense>
                                     </AdminLayout>
                                  </ProtectedRoute>} />

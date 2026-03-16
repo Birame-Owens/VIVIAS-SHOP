@@ -146,12 +146,20 @@ const loadCategories = async () => {
 };
 
     useEffect(() => {
-        loadProducts();
-    }, [currentPage, searchTerm, categoryFilter, statusFilter, sortBy, sortDirection]);
+        // ✅ Ne charger que si on a un token
+        if (token) {
+            loadProducts();
+        } else {
+            console.log('⏳ En attente du token...');
+        }
+    }, [token, currentPage, searchTerm, categoryFilter, statusFilter, sortBy, sortDirection]);
 
     useEffect(() => {
-        loadCategories();
-    }, []);
+        // ✅ Ne charger les catégories que si on a un token
+        if (token) {
+            loadCategories();
+        }
+    }, [token]);
 
     // Gérer la recherche
     const handleSearch = (e) => {

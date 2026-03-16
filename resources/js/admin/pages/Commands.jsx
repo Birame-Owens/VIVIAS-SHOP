@@ -107,9 +107,12 @@ const Commands = () => {
 
     // Charger les données
     useEffect(() => {
-        loadCommands();
-        loadStats();
-    }, [currentPage, filters]);
+        // ✅ Ne charger que si on a un token
+        if (token) {
+            loadCommands();
+            loadStats();
+        }
+    }, [token, currentPage, filters]);
 
   // Dans Commands.jsx, corrigez la méthode loadCommands :
 

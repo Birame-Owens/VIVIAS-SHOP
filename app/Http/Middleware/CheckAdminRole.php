@@ -14,13 +14,13 @@ class CheckAdminRole
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Vérifier si l'utilisateur est connecté (fonctionne avec session ET Bearer token)
-        if (!Auth::check()) {
+        // Vérifier si l'utilisateur est connecté - Essayer d'abord Sanctum (Bearer token)
+        $user = $request->user() ?? Auth::user();
+        
+        if (!$user) {
             return $this->unauthorized($request, 'Vous devez être connecté pour accéder à cette ressource.');
         }
 
-        $user = Auth::user();
-        
         // Vérifier que l'utilisateur existe
         if (!$user) {
             return $this->unauthorized($request, 'Utilisateur non trouvé.');

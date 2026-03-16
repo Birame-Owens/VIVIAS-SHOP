@@ -16,6 +16,8 @@ class DatabaseSeeder extends Seeder
 {
     $this->call([
         AdminUserSeeder::class,
+        AdminProductsAndCategoriesSeeder::class,  // Créer produits et catégories
+        ImagesProduitSeeder::class,                 // Ajouter images aux produits
         // DemoDataSeeder::class, // On créera ça après
     ]);
 }

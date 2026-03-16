@@ -47,22 +47,54 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         console.log('🚀 AuthProvider monté');
         
-        const savedToken = localStorage.getItem('admin_token');
-        const savedUser = localStorage.getItem('admin_user');
-        
-        if (savedToken && savedUser) {
-            try {
-                setToken(savedToken);
-                setUser(JSON.parse(savedUser));
-                console.log('✅ Session restaurée');
-            } catch (e) {
-                console.error('❌ Erreur session:', e);
-                localStorage.clear();
+        const initializeAuth = async () => {
+            const savedToken = localStorage.getItem('admin_token');
+            const savedUser = localStorage.getItem('admin_user');
+            
+            if (savedToken && savedUser) {
+                try {
+                    // Vérifier que le token est valide en testant avec le backend
+                    console.log('🔍 Vérification du token...');
+                    const response = await fetch('/api/user', {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${savedToken}`,
+                            'Accept': 'application/json',
+                        }
+                    });
+
+                    if (response.ok) {
+                        // Token valide
+                        setToken(savedToken);
+                        setUser(JSON.parse(savedUser));
+                        console.log('✅ Session restaurée et validée');
+                    } else if (response.status === 401) {
+                        // Token expiré ou invalide
+                        console.log('❌ Token invalide (401) - Nettoyage et redirection vers login');
+                        localStorage.removeItem('admin_token');
+                        localStorage.removeItem('admin_user');
+                        setToken(null);
+                        setUser(null);
+                    } else {
+                        // Autre erreur
+                        console.error('⚠️ Erreur vérification token:', response.status);
+                        localStorage.clear();
+                        setToken(null);
+                        setUser(null);
+                    }
+                } catch (e) {
+                    console.error('❌ Erreur session:', e);
+                    localStorage.clear();
+                    setToken(null);
+                    setUser(null);
+                }
             }
-        }
-        
-        setLoading(false);
-        console.log('✅ Loading terminé');
+            
+            setLoading(false);
+            console.log('✅ Loading terminé');
+        };
+
+        initializeAuth();
     }, []);
 
     const login = async (credentials) => {

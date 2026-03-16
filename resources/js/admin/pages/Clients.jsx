@@ -110,12 +110,18 @@ const Clients = () => {
     };
 
     useEffect(() => {
-        loadClients();
-    }, [currentPage, searchTerm, typeFilter, villeFilter, whatsappFilter]);
+        // ✅ Ne charger que si on a un token
+        if (token) {
+            loadClients();
+        }
+    }, [token, currentPage, searchTerm, typeFilter, villeFilter, whatsappFilter]);
 
     useEffect(() => {
-        loadStats();
-    }, []);
+        // ✅ Ne charger les stats que si on a un token
+        if (token) {
+            loadStats();
+        }
+    }, [token]);
 
     // Gérer la recherche
     const handleSearch = (e) => {

@@ -88,8 +88,13 @@ const Categories = () => {
     };
 
     useEffect(() => {
-        loadCategories();
-    }, [currentPage, searchTerm, sortBy, sortDirection]);
+        // ✅ Ne charger que si on a un token
+        if (token) {
+            loadCategories();
+        } else {
+            console.log('⏳ En attente du token...');
+        }
+    }, [token, currentPage, searchTerm, sortBy, sortDirection]);
 
     // Gérer la recherche
     const handleSearch = (e) => {

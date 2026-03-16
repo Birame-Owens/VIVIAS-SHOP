@@ -209,6 +209,15 @@ class ProductService
 
    private function formatProductDetails(Produit $product): array
 {
+    // Récupérer l'image principale
+    $imagePrincipale = asset('assets/images/placeholder.jpg');
+    $firstImage = $product->images_produits->first();
+    if ($firstImage && $firstImage->chemin_original) {
+        $imagePrincipale = asset('storage/' . $firstImage->chemin_original);
+    } elseif ($product->image_principale) {
+        $imagePrincipale = asset('storage/' . $product->image_principale);
+    }
+    
     return [
         'id' => $product->id,
         'nom' => $product->nom,
@@ -221,6 +230,7 @@ class ProductService
         'en_promo' => $product->prix_promo !== null,
         'pourcentage_reduction' => $product->prix_promo ? 
             round(((($product->prix - $product->prix_promo) / $product->prix) * 100), 0) : 0,
+        'image_principale' => $imagePrincipale,  // ✅ Ajouté
         'category' => $product->category ? [
             'id' => $product->category->id,
             'nom' => $product->category->nom,
@@ -288,6 +298,19 @@ class ProductService
         $imageUrl = asset('storage/' . $product->image_principale);
     }
     
+    // Formater toutes les images disponibles
+    $formattedImages = $product->images_produits->map(function ($img) {
+        return [
+            'id' => $img->id,
+            'url' => asset('storage/' . $img->chemin_original),
+            'thumb' => asset('storage/' . $img->chemin_miniature),
+            'medium' => asset('storage/' . $img->chemin_moyen),
+            'alt' => $img->alt_text ?: '',
+            'est_principale' => $img->est_principale,
+            'ordre' => $img->ordre_affichage
+        ];
+    })->toArray();
+    
     return [
         'id' => $product->id,
         'nom' => $product->nom,
@@ -297,7 +320,9 @@ class ProductService
         'prix_promo' => $product->prix_promo,
         'prix_affiche' => $product->prix_promo ?: $product->prix,
         'en_promo' => $product->prix_promo !== null,
-        'image' => $imageUrl,
+        'image_principale' => $imageUrl,  // ✅ Correspondance avec frontend
+        'image' => $imageUrl,              // ✅ Compatibilité arrière
+        'images' => $formattedImages,      // ✅ Toutes les images
         'note_moyenne' => $product->note_moyenne ?? 0,
         'nombre_avis' => $product->nombre_avis ?? 0,
         'est_nouveaute' => $product->est_nouveaute,

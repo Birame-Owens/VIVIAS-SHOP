@@ -36,13 +36,28 @@ export default defineConfig({
         port: 5173,
         strictPort: false,
         hmr: {
-            host: '192.168.1.11',
+            host: '192.168.1.9',
             port: 5173,
         },
         cors: {
-            origin: ['http://192.168.1.11:8000', 'http://localhost:8000'],
+            origin: ['http://192.168.1.9:8000', 'http://localhost:8000'],
             credentials: true,
         },
+        // Proxy SEULEMENT pour les API et storage - Vite gère le reste
+        proxy: {
+            '/api/': {
+                target: 'http://192.168.1.9:8000',
+                changeOrigin: true,
+            },
+            '/storage/': {
+                target: 'http://192.168.1.9:8000',
+                changeOrigin: true,
+            },
+            '/sanctum/': {
+                target: 'http://192.168.1.9:8000',
+                changeOrigin: true,
+            },
+        }
     },
     resolve: {
         alias: {

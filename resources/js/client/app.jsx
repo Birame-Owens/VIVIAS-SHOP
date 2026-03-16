@@ -5,8 +5,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { AuthProvider } from "./contexts/AuthContext";
 import api from "./utils/api";
 import SkeletonLoader from "./components/SkeletonLoader";
-import PageLoadingOverlay from "./components/PageLoadingOverlay";
-import { useRouteLoading } from "./hooks/useRouteLoading";
 import "./client.css";
 
 // ⚡ IMPORTANT: Retirer tous les logs en production
@@ -32,19 +30,14 @@ const PaymentSuccess = lazy(() => import(/* webpackChunkName: "page-payment-succ
 const ForgotPasswordPage = lazy(() => import(/* webpackChunkName: "page-forgot" */ "./pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import(/* webpackChunkName: "page-reset" */ "./pages/ResetPasswordPage"));
 
-// ⚡ Loading - Utilise le PageLoadingOverlay globalement
-// Le Suspense fallback n'est pas utilisé car PageLoadingOverlay gère le loading
-const PageLoader = () => null;
+// ⚡ Loading - Skeleton loader uniquement
+const PageLoader = () => <SkeletonLoader />;
 
-// Routes component avec loading overlay
+// Routes component avec skeleton loading
 const RoutesWithLoading = () => {
-    const { isLoading } = useRouteLoading();
-
     return (
-        <>
-            <PageLoadingOverlay isLoading={isLoading} />
-            <Suspense fallback={<PageLoader />}>
-                <Routes>
+        <Suspense fallback={<PageLoader />}>
+            <Routes>
                     <Route path="/" element={<HomePage />} />
                     <Route path="/shop" element={<ShopPage />} />
                     <Route path="/products/:slug" element={<ProductDetailPage />} />
@@ -62,7 +55,6 @@ const RoutesWithLoading = () => {
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Suspense>
-        </>
     );
 };
 
