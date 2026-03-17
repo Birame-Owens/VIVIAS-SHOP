@@ -165,6 +165,32 @@ class CartService
 
             $prixUnitaire = $product->prix_promo ?: $product->prix;
 
+            // Formater les images (même structure que ProductService)
+            $imageUrl = $product->image ?: '/images/placeholder-product.jpg';
+            $imagePrincipale = null;
+            $imagesArray = [];
+            
+            if ($product->images_produits && $product->images_produits->count() > 0) {
+                foreach ($product->images_produits as $img) {
+                    $imgData = [
+                        'id' => $img->id,
+                        'url' => $img->chemin_image,
+                        'thumb' => $img->chemin_miniature ?: $img->chemin_image,
+                        'medium' => $img->chemin_medium ?: $img->chemin_image,
+                        'alt' => $img->texte_alternatif ?: $product->nom,
+                        'est_principale' => $img->est_principale,
+                        'ordre' => $img->ordre_affichage,
+                    ];
+                    
+                    $imagesArray[] = $imgData;
+                    
+                    if ($img->est_principale) {
+                        $imagePrincipale = $imgData;
+                        $imageUrl = $img->chemin_image;
+                    }
+                }
+            }
+            
             $items[] = [
                 'id' => $cartItem->id,
                 'product' => [
@@ -173,7 +199,9 @@ class CartService
                     'slug' => $product->slug,
                     'prix' => $product->prix,
                     'prix_promo' => $product->prix_promo,
-                    'image' => $product->image, // Utilise l'accesseur qui gère le fallback
+                    'image' => $imageUrl,
+                    'image_principale' => $imagePrincipale,
+                    'images' => $imagesArray,
                     'en_stock' => !$product->gestion_stock || $product->stock_disponible > 0
                 ],
                 'quantite' => $cartItem->quantite,
