@@ -404,6 +404,14 @@ Route::prefix('client')->group(function () {
     // =================== PANIER (SESSION BASED) ===================
     Route::prefix('cart')->group(function () {
         Route::get('/', [CartController::class, 'index']);
+        Route::get('/debug', function() {
+            $cart = app(\App\Services\Client\CartService::class)->getCart();
+            return response()->json([
+                'debug' => true,
+                'items_count' => count($cart['items'] ?? []),
+                'raw_cart' => $cart
+            ]);
+        });
         Route::post('/add', [CartController::class, 'add']);
         Route::put('/update/{itemId}', [CartController::class, 'update']);
         Route::delete('/remove/{itemId}', [CartController::class, 'remove']);
