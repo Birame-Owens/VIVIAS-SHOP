@@ -139,7 +139,9 @@ class CartService
         // Récupérer les articles avec les relations
         $cartItems = $panier->articles_paniers()
             ->with(['produit.images_produits' => function($q) {
-                $q->where('est_visible', true)->orderBy('ordre_affichage');
+                // ✅ Charger TOUS les images (comme ProductDetailPage)
+                // Pas de filtre est_visible pour afficher même les images cachées
+                $q->orderBy('ordre_affichage');
             }])
             ->get();
         
@@ -166,18 +168,21 @@ class CartService
             $prixUnitaire = $product->prix_promo ?: $product->prix;
 
             // Formater les images (même structure que ProductService)
-            $imageUrl = $product->image ?: '/images/placeholder-product.jpg';
+            $placeholderUrl = asset('images/placeholder-product.jpg');
+            $imageUrl = $product->image ?: $placeholderUrl;
             $imagePrincipale = null;
             $imagesArray = [];
             
             if ($product->images_produits && $product->images_produits->count() > 0) {
                 foreach ($product->images_produits as $img) {
+                    // ✅ Utiliser le getter $img->url qui construit automatiquement l'URL avec asset()
+                    $imgUrl = $img->url ?: $placeholderUrl;
                     $imgData = [
                         'id' => $img->id,
-                        'url' => $img->chemin_image,
-                        'thumb' => $img->chemin_miniature ?: $img->chemin_image,
-                        'medium' => $img->chemin_medium ?: $img->chemin_image,
-                        'alt' => $img->texte_alternatif ?: $product->nom,
+                        'url' => $imgUrl,
+                        'thumb' => $img->url ?: $imgUrl,
+                        'medium' => $img->url ?: $imgUrl,
+                        'alt' => $img->alt_text ?: $product->nom,
                         'est_principale' => $img->est_principale,
                         'ordre' => $img->ordre_affichage,
                     ];
@@ -186,9 +191,14 @@ class CartService
                     
                     if ($img->est_principale) {
                         $imagePrincipale = $imgData;
-                        $imageUrl = $img->chemin_image;
+                        $imageUrl = $imgUrl;
                     }
                 }
+            }
+            
+            // Si aucune image trouvée, utiliser le placeholder complet
+            if (empty($imagesArray)) {
+                $imageUrl = $placeholderUrl;
             }
             
             $items[] = [
