@@ -86,6 +86,11 @@ setup-*.sh
 test-*.ps1
 update-*.ps1
 
+# ✅ Exceptions: Scripts de déploiement ACCEPTÉS
+!deploy.ps1
+!deploy.sh
+!stop.ps1
+
 # ==========================================
 # 📚 DOCUMENTATION TEMPORAIRE
 # ==========================================
