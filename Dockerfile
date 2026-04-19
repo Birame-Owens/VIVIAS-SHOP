@@ -52,13 +52,8 @@ RUN php artisan key:generate --force \
     && php artisan route:cache \
     && php artisan view:cache
 
-# Copy supervisor config
-COPY docker/supervisor/laravel-worker.conf /etc/supervisor/conf.d/laravel-worker.conf
-
 # Expose port
 EXPOSE 8000
 
 # Run migrations and start application
-CMD php artisan migrate --force && \
-    php artisan queue:work database --sleep=3 --tries=3 --daemon &
-    php artisan serve --host=0.0.0.0 --port=8000
+CMD sh -c 'php artisan migrate --force && php artisan queue:work database --sleep=3 --tries=3 --daemon & php artisan serve --host=0.0.0.0 --port=8000'
