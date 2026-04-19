@@ -62,6 +62,16 @@ cart_response.json
 /public/images/
 public/assets/images/
 
+# 🔐 FICHIERS SENSIBLES - SECRETS AWS & CREDENTIALS
+AWS_S3_CONFIG_COMPLETE.md
+CONFIGURATION_AWS_S3.md
+CREDENTIALS_*.md
+BUCKET_POLICY_*.md
+CREER_ACCESS_KEY.md
+debug_*.php
+upload_test_*.php
+storage/test-*.jpg
+
 # Fichiers de doc (gardez seulement les essentiels)
 ANALYSE_*.md
 CORRECTIONS_*.md
@@ -85,6 +95,9 @@ SETUP_*.md
 TRAVAIL_*.md
 VERIFICATION_*.md
 VISUALISATION_*.md
+ARCHITECTURE_*.md
+TECHNICAL_*.md
+CHANGES_*.md
 
 # Fichiers temporaires
 nul
