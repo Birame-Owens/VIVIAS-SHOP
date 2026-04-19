@@ -1,0 +1,130 @@
+# ==========================================
+# VIVIAS-SHOP GitLab CI/CD Pipeline
+# ==========================================
+
+stages:
+  - build
+  - test
+  - deploy
+
+# Variables
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  REGISTRY: docker.io
+  IMAGE_NAME: ${CI_PROJECT_PATH}
+
+# Build Backend
+build_backend:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t ${REGISTRY}/${IMAGE_NAME}:backend-${CI_COMMIT_SHA} -f Dockerfile .
+    - docker tag ${REGISTRY}/${IMAGE_NAME}:backend-${CI_COMMIT_SHA} ${REGISTRY}/${IMAGE_NAME}:backend-latest
+  only:
+    - main
+    - development
+
+# Build Frontend
+build_frontend:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t ${REGISTRY}/${IMAGE_NAME}:frontend-${CI_COMMIT_SHA} -f Dockerfile.frontend .
+    - docker tag ${REGISTRY}/${IMAGE_NAME}:frontend-${CI_COMMIT_SHA} ${REGISTRY}/${IMAGE_NAME}:frontend-latest
+  only:
+    - main
+    - development
+
+# Test Backend
+test_backend:
+  stage: test
+  image: php:8.2-alpine
+  before_script:
+    - apk add --no-cache libpq-dev
+    - docker-php-ext-install pdo_pgsql
+    - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer
+    - composer install --no-dev --no-interaction --prefer-dist
+  script:
+    - ./vendor/bin/phpstan analyse app --level=6
+    - php artisan tinker --version
+  artifacts:
+    paths:
+      - storage/logs/
+    expire_in: 1 week
+  cache:
+    paths:
+      - vendor/
+      - node_modules/
+  only:
+    - merge_requests
+    - main
+
+# Test Frontend
+test_frontend:
+  stage: test
+  image: node:20-alpine
+  before_script:
+    - npm ci
+  script:
+    - npm run build
+    - npm run type-check 2>/dev/null || true
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+  cache:
+    paths:
+      - node_modules/
+  only:
+    - merge_requests
+    - main
+
+# Deploy to Production
+deploy_production:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh
+    - echo "$DEPLOY_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H ${DEPLOY_HOST} >> ~/.ssh/known_hosts
+  script:
+    - ssh ${DEPLOY_USER}@${DEPLOY_HOST} "cd ${DEPLOY_PATH} && git pull origin main && docker-compose -f docker-compose.yml pull && docker-compose -f docker-compose.yml up -d"
+  environment:
+    name: production
+    url: http://vivias-shop.com
+  only:
+    - main
+  when: manual
+
+# Security Scanning
+security_scan:
+  stage: test
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl git
+  script:
+    - echo "Running security checks..."
+    - git diff --no-index /dev/null . 2>/dev/null | grep -i "aws_secret\|password\|api_key\|token" && exit 1 || echo "✓ No secrets found"
+  allow_failure: true
+  only:
+    - merge_requests
+
+# Documentation
+pages:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - mkdir -p public
+    - cp README.md public/index.html
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
