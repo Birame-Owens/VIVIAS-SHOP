@@ -65,7 +65,7 @@ export const OptimizedImage = ({
                 style={{ objectFit }}
                 onLoad={handleLoad}
                 onError={(e) => {
-                    e.target.src = '/images/placeholder.webp';
+                    e.target.src = '/images/placeholder-product.jpg';
                     setIsLoaded(true);
                 }}
             />

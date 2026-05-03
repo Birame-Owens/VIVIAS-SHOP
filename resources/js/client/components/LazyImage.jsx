@@ -64,7 +64,7 @@ const LazyImage = memo(({
 
   const handleError = (e) => {
     setHasError(true);
-    setImageSrc('/images/placeholder-error.jpg');
+    setImageSrc('/images/placeholder-product.jpg');
     if (onError) onError(e);
   };
 

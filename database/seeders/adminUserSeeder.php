@@ -1,17 +1,8 @@
 <?php
-// ================================================================
-// 📝 CRÉER ADMIN SEEDER
-// ================================================================
-
-// Commande à exécuter d'abord :
-// php artisan make:seeder AdminUserSeeder
-
-// ================================================================
-// FICHIER: database/seeders/AdminUserSeeder.php
-// ================================================================
 
 namespace Database\Seeders;
 
+use App\Models\Client;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -20,14 +11,13 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        // Créer l'utilisateur admin principal
         User::updateOrCreate(
-            ['email' => 'admin@vivias-shop.com'],
+            ['email' => 'admin@vivias.com'],
             [
-                'name' => 'Amina ',
-                'email' => 'admin@vivias-shop.com',
-                'password' => Hash::make('amina123'),
-                'telephone' => '+221771397393',
+                'name' => 'VIVIAS Admin',
+                'email' => 'admin@vivias.com',
+                'password' => Hash::make('password'),
+                'telephone' => '+221770000000',
                 'role' => 'admin',
                 'statut' => 'actif',
                 'nombre_connexions' => 0,
@@ -35,23 +25,36 @@ class AdminUserSeeder extends Seeder
             ]
         );
 
-        // Créer un deuxième admin (votre amie)
-        User::updateOrCreate(
-            ['email' => 'diopbirame8@gmail.com'],
+        $clientUser = User::updateOrCreate(
+            ['email' => 'client@vivias.com'],
             [
-                'name' => 'Birame Diop',
-                'email' => 'diopbirame8@gmail.com',
-                'password' => Hash::make('vivias2024'),
-                'telephone' => '+221771397393',
-                'role' => 'admin',
+                'name' => 'Client Demo',
+                'email' => 'client@vivias.com',
+                'password' => Hash::make('password'),
+                'telephone' => '+221770000001',
+                'role' => 'client',
                 'statut' => 'actif',
                 'nombre_connexions' => 0,
                 'email_verified_at' => now(),
             ]
         );
 
-        echo "✅ Utilisateurs admin créés avec succès !\n";
-        echo "📧 admin@vivias-shop.com / amina123\n";
-        echo "📧 diopbirame8@gmail.com / vivias2024\n";
+        Client::updateOrCreate(
+            ['email' => 'client@vivias.com'],
+            [
+                'user_id' => $clientUser->id,
+                'nom' => 'Demo',
+                'prenom' => 'Client',
+                'telephone' => '+221770000001',
+                'ville' => 'Dakar',
+                'adresse_principale' => 'Dakar',
+                'type_client' => 'nouveau',
+                'accepte_whatsapp' => true,
+                'accepte_email' => true,
+                'accepte_promotions' => true,
+            ]
+        );
+
+        $this->command?->info('Default users ready: admin@vivias.com / password, client@vivias.com / password');
     }
 }

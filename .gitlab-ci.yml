@@ -122,7 +122,7 @@ pages:
   image: alpine:latest
   script:
     - mkdir -p public
-    - cp README.md public/index.html
+    - printf '<!doctype html><html><body><h1>VIVIAS-SHOP</h1></body></html>' > public/index.html
   artifacts:
     paths:
       - public

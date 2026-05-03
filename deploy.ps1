@@ -1,67 +1,35 @@
-# VIVIAS-SHOP Deployment Script (Windows)
+Write-Host "Starting VIVIAS-SHOP with Docker..." -ForegroundColor Green
 
-Write-Host "Deploiement VIVIAS-SHOP..." -ForegroundColor Green
-Write-Host "IP: 192.168.1.9" -ForegroundColor Cyan
-Write-Host ""
-
-# Check Docker
-$dockerExists = Get-Command docker -ErrorAction SilentlyContinue
-if ($null -eq $dockerExists) {
-    Write-Host "ERREUR: Docker n'est pas installe" -ForegroundColor Red
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+    Write-Host "Docker is not installed." -ForegroundColor Red
     exit 1
 }
 
-# Check docker-compose
-$dockerComposeExists = Get-Command docker-compose -ErrorAction SilentlyContinue
-if ($null -eq $dockerComposeExists) {
-    Write-Host "ERREUR: Docker Compose n'est pas installe" -ForegroundColor Red
+docker compose version | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Docker Compose is not available." -ForegroundColor Red
     exit 1
 }
 
-# Check if Docker daemon is running
-Write-Host "Verification: Docker en cours d'execution..." -ForegroundColor Yellow
-try {
-    docker ps | Out-Null
-} catch {
-    Write-Host "ERREUR: Docker Desktop n'est pas en cours d'execution" -ForegroundColor Red
-    Write-Host "Action: Demarrez Docker Desktop et relancez le script" -ForegroundColor Yellow
+if (-not (Test-Path ".env")) {
+    Copy-Item ".env.example" ".env"
+    Write-Host ".env created from .env.example" -ForegroundColor Yellow
+}
+
+docker compose up -d --build
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Docker startup failed. Check logs with: docker compose logs" -ForegroundColor Red
     exit 1
 }
-Write-Host "OK: Docker est actif" -ForegroundColor Green
-Write-Host ""
 
-# Copy .env if doesn't exist
-if (-not (Test-Path .env)) {
-    Write-Host "Copie du fichier .env..." -ForegroundColor Yellow
-    Copy-Item .env.example .env
-    Write-Host "OK: .env cree" -ForegroundColor Green
-}
+Write-Host "Creating default users..." -ForegroundColor Yellow
+docker compose exec -T backend php artisan db:seed --class=AdminUserSeeder --force
 
-# Start containers
 Write-Host ""
-Write-Host "Demarrage des conteneurs..." -ForegroundColor Cyan
-docker-compose up -d
-
-# Wait for DB
-Write-Host "Attente du demarrage de PostgreSQL..." -ForegroundColor Yellow
-Start-Sleep -Seconds 10
-
-# Run migrations
-Write-Host "Execution des migrations..." -ForegroundColor Cyan
-docker-compose exec -T backend php artisan migrate --force
-
-# Display access info
+Write-Host "VIVIAS-SHOP is ready." -ForegroundColor Green
+Write-Host "Frontend: http://localhost:5173"
+Write-Host "Backend:  http://localhost:8000"
+Write-Host "Admin:    http://localhost:5173/admin"
 Write-Host ""
-Write-Host "OK: Application demarree!" -ForegroundColor Green
-Write-Host ""
-Write-Host "Acces:" -ForegroundColor Cyan
-Write-Host "   Frontend: http://192.168.1.9:5173" -ForegroundColor White
-Write-Host "   Backend:  http://192.168.1.9:8000" -ForegroundColor White
-Write-Host "   API:      http://192.168.1.9:8000/api" -ForegroundColor White
-Write-Host "   DB:       localhost:5432" -ForegroundColor White
-Write-Host ""
-Write-Host "Logs:" -ForegroundColor Cyan
-Write-Host "   docker-compose logs -f backend" -ForegroundColor White
-Write-Host "   docker-compose logs -f frontend" -ForegroundColor White
-Write-Host ""
-Write-Host "Pour arreter: docker-compose down" -ForegroundColor Yellow
+Write-Host "Admin login:  admin@vivias.com / password"
+Write-Host "Client login: client@vivias.com / password"

@@ -22,6 +22,11 @@ return new class extends Migration
 
     private function createIndexIfNotExists($table, $columns, $type = 'index')
     {
+        // Check if table exists first
+        if (!Schema::hasTable($table)) {
+            return;
+        }
+        
         $indexName = is_array($columns) 
             ? $table . '_' . implode('_', $columns) . '_index'
             : $table . '_' . $columns . '_index';
@@ -53,7 +58,7 @@ return new class extends Migration
         $this->createIndexIfNotExists('produits', 'nom');
         
         // Full-text search pour PostgreSQL (CORRIGÉ - sans le champ tags qui est JSON)
-        if (!$this->indexExists('produits', 'produits_search_idx')) {
+        if (Schema::hasTable('produits') && !$this->indexExists('produits', 'produits_search_idx')) {
             DB::statement("CREATE INDEX produits_search_idx ON produits USING gin(to_tsvector('french', coalesce(nom,'') || ' ' || coalesce(description,'')))");
         }
 

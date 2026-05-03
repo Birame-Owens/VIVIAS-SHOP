@@ -1,9 +1,4 @@
-# ==========================================
-# VIVIAS-SHOP Docker Compose
-# ==========================================
-
 services:
-  # ===== Database: PostgreSQL =====
   db:
     image: postgres:15-alpine
     container_name: vivias_db
@@ -16,14 +11,28 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE:-VIVIAS}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - vivias_network
 
-  # ===== Backend: Laravel 12 API =====
+  redis:
+    image: redis:7-alpine
+    container_name: vivias_redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vivias_network
+
   backend:
     build:
       context: .
@@ -32,35 +41,42 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
-      APP_NAME: ${APP_NAME:-VIVIAS SHOP}
-      APP_ENV: ${APP_ENV:-production}
-      APP_DEBUG: ${APP_DEBUG:-false}
-      APP_URL: ${APP_URL:-http://192.168.1.9:8000}
-      DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      APP_URL: ${APP_URL:-http://localhost:8000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      DB_CONNECTION: pgsql
       DB_HOST: db
-      DB_PORT: ${DB_PORT:-5432}
+      DB_PORT: 5432
       DB_DATABASE: ${DB_DATABASE:-VIVIAS}
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-password}
-      CACHE_DRIVER: ${CACHE_DRIVER:-redis}
-      QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}
+      CACHE_STORE: redis
+      CACHE_DRIVER: redis
+      QUEUE_CONNECTION: database
+      REDIS_CLIENT: predis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      FILESYSTEM_DISK: local
+      MAIL_MAILER: log
+      SANCTUM_STATEFUL_DOMAINS: localhost:5173,127.0.0.1:5173
     ports:
       - "${APP_PORT:-8000}:8000"
     volumes:
       - ./app:/app/app
-      - ./routes:/app/routes
-      - ./resources:/app/resources
-      - ./storage:/app/storage
+      - ./bootstrap:/app/bootstrap
+      - ./config:/app/config
       - ./database:/app/database
+      - ./resources:/app/resources
+      - ./routes:/app/routes
+      - ./storage:/app/storage
+      - ./public:/app/public
     networks:
       - vivias_network
-    command: >
-      sh -c "php artisan migrate --force &&
-             php artisan queue:work database --sleep=3 --tries=3 &
-             php artisan serve --host=0.0.0.0 --port=8000"
 
-  # ===== Frontend: React 19 =====
   frontend:
     build:
       context: .
@@ -69,68 +85,60 @@ services:
     depends_on:
       - backend
     environment:
-      REACT_APP_API_URL: ${FRONTEND_API_URL:-http://192.168.1.9:8000/api}
-      VITE_API_URL: ${VITE_API_URL:-http://192.168.1.9:8000/api}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
+      VITE_HMR_HOST: localhost
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
     volumes:
-      - ./src:/app/src
+      - ./resources:/app/resources
       - ./public:/app/public
+      - ./vite.config.js:/app/vite.config.js
+      - ./tailwind.config.js:/app/tailwind.config.js
+      - ./postcss.config.js:/app/postcss.config.js
     networks:
       - vivias_network
-    stdin_open: true
-    tty: true
 
-  # ===== Redis Cache (Optional but recommended) =====
-  redis:
-    image: redis:7-alpine
-    container_name: vivias_redis
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - vivias_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ===== Queue Worker (Optional, separate instance) =====
   queue:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: vivias_queue_worker
     depends_on:
-      db:
-        condition: service_healthy
+      backend:
+        condition: service_started
     environment:
-      APP_NAME: ${APP_NAME:-VIVIAS SHOP}
-      APP_ENV: ${APP_ENV:-production}
-      APP_DEBUG: ${APP_DEBUG:-false}
-      DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      DB_CONNECTION: pgsql
       DB_HOST: db
-      DB_PORT: ${DB_PORT:-5432}
+      DB_PORT: 5432
       DB_DATABASE: ${DB_DATABASE:-VIVIAS}
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-password}
+      CACHE_STORE: redis
+      CACHE_DRIVER: redis
+      QUEUE_CONNECTION: database
+      REDIS_CLIENT: predis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      FILESYSTEM_DISK: local
+      MAIL_MAILER: log
     volumes:
       - ./app:/app/app
+      - ./bootstrap:/app/bootstrap
+      - ./config:/app/config
+      - ./database:/app/database
+      - ./resources:/app/resources
+      - ./routes:/app/routes
       - ./storage:/app/storage
+    command: sh -c "sleep 15 && if [ ! -f .env ]; then cp .env.example .env; fi && php artisan key:generate --force && php artisan queue:work database --sleep=3 --tries=3"
     networks:
       - vivias_network
-    command: php artisan queue:work database --sleep=3 --tries=3 --daemon
 
-# ===== Volumes =====
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
 
-# ===== Networks =====
 networks:
   vivias_network:
     driver: bridge

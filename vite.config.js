@@ -36,25 +36,26 @@ export default defineConfig({
         port: 5173,
         strictPort: false,
         hmr: {
-            host: '192.168.1.9',
+            protocol: 'http',
+            host: process.env.VITE_HMR_HOST || 'localhost',
             port: 5173,
         },
         cors: {
-            origin: ['http://192.168.1.9:8000', 'http://localhost:8000'],
+            origin: true,
             credentials: true,
         },
-        // Proxy SEULEMENT pour les API et storage - Vite gère le reste
+        // Proxy pour les API et storage - Vite gère le reste
         proxy: {
             '/api/': {
-                target: 'http://192.168.1.9:8000',
+                target: process.env.APP_URL || 'http://localhost:8000',
                 changeOrigin: true,
             },
             '/storage/': {
-                target: 'http://192.168.1.9:8000',
+                target: process.env.APP_URL || 'http://localhost:8000',
                 changeOrigin: true,
             },
             '/sanctum/': {
-                target: 'http://192.168.1.9:8000',
+                target: process.env.APP_URL || 'http://localhost:8000',
                 changeOrigin: true,
             },
         }

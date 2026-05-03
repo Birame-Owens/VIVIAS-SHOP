@@ -1,59 +1,44 @@
-# ==========================================
-# VIVIAS-SHOP Backend - Laravel 12 Dockerfile
-# ==========================================
-
 FROM php:8.2-fpm-alpine
 
-# Install system dependencies
 RUN apk add --no-cache \
     build-base \
     libpq-dev \
     postgresql-client \
+    libxml2-dev \
+    oniguruma-dev \
+    libzip-dev \
+    freetype-dev \
+    libjpeg-turbo-dev \
+    libpng-dev \
     git \
     curl \
     zip \
-    unzip \
-    supervisor \
-    nginx
+    unzip
 
-# Install PHP extensions
-RUN docker-php-ext-install \
-    pdo \
+RUN docker-php-ext-configure gd --with-jpeg --with-freetype \
+    && docker-php-ext-install \
     pdo_pgsql \
     bcmath \
-    ctype \
-    json \
     mbstring \
-    tokenizer \
-    xml
+    xml \
+    gd \
+    exif \
+    zip
 
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Set working directory
 WORKDIR /app
 
-# Copy composer files
 COPY composer.json composer.lock ./
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
-# Install dependencies
-RUN composer install --no-dev --no-interaction --prefer-dist
-
-# Copy application code
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p storage/logs storage/pail bootstrap/cache \
+RUN composer dump-autoload --optimize
+
+RUN mkdir -p storage/logs storage/framework/cache/data storage/framework/sessions storage/framework/views bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-# Generate app key and cache
-RUN php artisan key:generate --force \
-    && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache
-
-# Expose port
 EXPOSE 8000
 
-# Run migrations and start application
-CMD sh -c 'php artisan migrate --force && php artisan queue:work database --sleep=3 --tries=3 --daemon & php artisan serve --host=0.0.0.0 --port=8000'
+CMD ["sh", "-c", "if [ ! -f .env ]; then cp .env.example .env; fi && php artisan key:generate --force && php artisan storage:link || true && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8000"]
