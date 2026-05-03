@@ -27,9 +27,10 @@ docker compose exec -T backend php artisan db:seed --class=AdminUserSeeder --for
 
 Write-Host ""
 Write-Host "VIVIAS-SHOP is ready." -ForegroundColor Green
-Write-Host "Frontend: http://localhost:5173"
-Write-Host "Backend:  http://localhost:8000"
-Write-Host "Admin:    http://localhost:5173/admin"
+Write-Host "Client:   http://localhost:8001"
+Write-Host "API:      http://localhost:8001/api"
+Write-Host "Admin:    http://localhost:8001/admin"
+Write-Host "Vite:     http://localhost:5173"
 Write-Host ""
 Write-Host "Admin login:  admin@vivias.com / password"
 Write-Host "Client login: client@vivias.com / password"

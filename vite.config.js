@@ -47,15 +47,15 @@ export default defineConfig({
         // Proxy pour les API et storage - Vite gère le reste
         proxy: {
             '/api/': {
-                target: process.env.APP_URL || 'http://localhost:8000',
+                target: process.env.APP_URL || 'http://localhost:8001',
                 changeOrigin: true,
             },
             '/storage/': {
-                target: process.env.APP_URL || 'http://localhost:8000',
+                target: process.env.APP_URL || 'http://localhost:8001',
                 changeOrigin: true,
             },
             '/sanctum/': {
-                target: process.env.APP_URL || 'http://localhost:8000',
+                target: process.env.APP_URL || 'http://localhost:8001',
                 changeOrigin: true,
             },
         }

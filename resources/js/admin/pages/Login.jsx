@@ -53,14 +53,14 @@ const AdminLogin = () => {
     const fillTestCredentials = (userType) => {
         if (userType === 'admin1') {
             setFormData({
-                email: 'admin@vivias-shop.com',
-                password: 'amina123',
+                email: 'admin@vivias.com',
+                password: 'password',
                 remember: false
             });
         } else if (userType === 'admin2') {
             setFormData({
-                email: 'diopbirame8@gmail.com',
-                password: 'vivias2024',
+                email: 'client@vivias.com',
+                password: 'password',
                 remember: false
             });
         }
@@ -97,7 +97,7 @@ const AdminLogin = () => {
                                 onChange={handleChange}
                                 required
                                 className="w-full px-4 py-3 border border-neutral-200 bg-white focus:border-black focus:outline-none transition-all text-sm"
-                                placeholder="exemple@vivias-shop.com"
+                                placeholder="admin@vivias.com"
                             />
                         </div>
 
@@ -154,7 +154,7 @@ const AdminLogin = () => {
                                 className="w-full text-left p-3 bg-neutral-50 hover:bg-black hover:text-white border border-neutral-100 transition-all duration-200"
                             >
                                 <div className="font-bold text-xs uppercase tracking-wide">Admin Principal</div>
-                                <div className="text-[10px] text-neutral-400 mt-1">admin@vivias-shop.com</div>
+                                <div className="text-[10px] text-neutral-400 mt-1">admin@vivias.com</div>
                             </button>
 
                             <button
@@ -162,8 +162,8 @@ const AdminLogin = () => {
                                 onClick={() => fillTestCredentials('admin2')}
                                 className="w-full text-left p-3 bg-neutral-50 hover:bg-black hover:text-white border border-neutral-100 transition-all duration-200"
                             >
-                                <div className="font-bold text-xs uppercase tracking-wide">Admin Birame</div>
-                                <div className="text-[10px] text-neutral-400 mt-1">diopbirame8@gmail.com</div>
+                                <div className="font-bold text-xs uppercase tracking-wide">Client Demo</div>
+                                <div className="text-[10px] text-neutral-400 mt-1">client@vivias.com</div>
                             </button>
                         </div>
                     </div>

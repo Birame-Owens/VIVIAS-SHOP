@@ -16,18 +16,18 @@
     <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:title" content="VIVIAS SHOP - Mode Africaine Authentique">
     <meta property="og:description" content="Découvrez notre collection exclusive de vêtements traditionnels et modernes">
-    <meta property="og:image" content="{{ asset('images/og-image.jpg') }}">
+    <meta property="og:image" content="{{ asset('assets/images/vivias.jpg') }}">
 
     {{-- Twitter --}}
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="{{ url()->current() }}">
     <meta property="twitter:title" content="VIVIAS SHOP - Mode Africaine Authentique">
     <meta property="twitter:description" content="Découvrez notre collection exclusive de vêtements traditionnels et modernes">
-    <meta property="twitter:image" content="{{ asset('images/twitter-image.jpg') }}">
+    <meta property="twitter:image" content="{{ asset('assets/images/vivias.jpg') }}">
 
     {{-- Favicon --}}
-    <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
+    <link rel="icon" href="{{ asset('favicon.ico') }}">
+    <link rel="apple-touch-icon" href="{{ asset('favicon.ico') }}">
     
     {{-- Préconnexion pour performance --}}
     <link rel="preconnect" href="{{ url('/') }}" crossorigin>

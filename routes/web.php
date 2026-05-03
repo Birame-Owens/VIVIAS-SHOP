@@ -7,12 +7,8 @@ Route::get('/', function () {
     return view('client.client');
 });
 
-// Routes admin
+// Routes admin: React handles /admin/login and all admin pages.
 Route::prefix('admin')->group(function () {
-    Route::get('/login', function () {
-        return view('admin.login');
-    })->name('admin.login');
-    
     Route::get('/{path?}', function () {
         return view('admin.app');
     })->where('path', '.*')->name('admin.app');

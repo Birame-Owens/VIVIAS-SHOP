@@ -41,4 +41,4 @@ RUN mkdir -p storage/logs storage/framework/cache/data storage/framework/session
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "if [ ! -f .env ]; then cp .env.example .env; fi && php artisan key:generate --force && php artisan storage:link || true && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8000"]
+CMD ["sh", "-c", "php artisan config:clear && php artisan storage:link || true && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8000"]

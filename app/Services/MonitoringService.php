@@ -67,10 +67,10 @@ class MonitoringService
     public static function getSystemHealth(): array
     {
         return [
-            'database' => $this->checkDatabase(),
-            'cache' => $this->checkCache(),
-            'disk' => $this->checkDiskSpace(),
-            'memory' => $this->checkMemory(),
+            'database' => self::checkDatabase(),
+            'cache' => self::checkCache(),
+            'disk' => self::checkDiskSpace(),
+            'memory' => self::checkMemory(),
         ];
     }
 
